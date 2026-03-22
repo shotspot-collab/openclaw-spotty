@@ -127,6 +127,17 @@ Use the **subagent approach** for meaningful ShotSpot work:
 - never deploy without explicit user approval
 - treat deploy as a guarded specialist role, not an autonomous actor
 
+### Spotty Local Role Skills
+
+Spotty also has local per-role skills in `skills/`:
+- `shotspot-coordinator`
+- `shotspot-architect`
+- `shotspot-developer`
+- `shotspot-qa`
+- `shotspot-deploy`
+
+Use the matching role skill whenever one clearly applies.
+
 ### Subagent Operating Rules
 
 - Use **OpenClaw subagents** as the orchestration layer for specialist roles.

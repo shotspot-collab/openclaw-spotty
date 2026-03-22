@@ -43,6 +43,10 @@ Include:
 - expected deliverable
 - whether to answer in a role-labeled format
 
+## Spawn templates
+
+Read `references/spawn-templates.md` when preparing a runtime Architect, Developer, QA, or Deploy subagent brief.
+
 ## Guardrails
 
 - Keep Spotty as the single public-facing persona.

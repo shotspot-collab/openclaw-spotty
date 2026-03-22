@@ -48,6 +48,10 @@ Then read only the files needed for the task.
 - simple explanation/inspection
 - very small low-risk patch
 
+## References
+
+Read `references/codex-sop.md` when deciding whether to use Codex or when preparing/reviewing a Codex-assisted implementation run.
+
 ## Guardrails
 
 - Do not reintroduce demo mode or fake runtime paths.

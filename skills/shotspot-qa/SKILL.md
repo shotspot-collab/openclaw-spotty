@@ -34,6 +34,10 @@ Include:
 - pass/fail
 - residual risks
 
+## References
+
+Read `references/qa-report-template.md` when producing QA output so the report stays structured and evidence-based.
+
 ## Guardrails
 
 - Do not wave through untested changes.

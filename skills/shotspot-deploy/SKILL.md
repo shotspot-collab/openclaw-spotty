@@ -34,6 +34,10 @@ When presenting direct deploy output, begin with:
 - `OPS_NOTIFICATION_EMAIL` may be a public mailbox; `SES_FROM_EMAIL` must be a verified SES sender identity.
 - If blocked by missing config, state exactly what is missing.
 
+## References
+
+Read `references/release-gate-checklist.md` when assessing deploy readiness or preparing deploy-related output.
+
 ## Deliverables
 
 Provide:

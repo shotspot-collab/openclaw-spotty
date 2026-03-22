@@ -84,26 +84,84 @@ Then:
 
 ### ShotSpot Workflow Model
 
+Use the **subagent approach** for meaningful ShotSpot work:
+- **Spotty is the Coordinator by default** and remains the single public-facing persona.
+- For non-trivial work, Spotty should spawn isolated OpenClaw subagents for specialist roles instead of trying to do every role inline.
+- Preferred specialist subagents:
+  - `Architect`
+  - `Developer`
+  - `QA`
+  - `Deploy`
+- Keep user-facing summaries with Spotty/Coordinator unless the user explicitly asks for raw specialist output.
+
 1. Coordinator
-- owns task intake, stage movement, user-facing summaries, and approvals
+- owns task intake, stage movement, user-facing summaries, approvals, and final recommendations
 - updates the active task record in the repo-local knowledge base
+- decides when specialist subagents are needed
+- should usually spawn subagents for meaningful design, implementation, QA, or deploy planning work
 
 2. Architect
+- spawn when requirements are ambiguous, architecture could shift, schema/contracts may change, infra assumptions matter, or a user asks for design/planning
 - produces design output before implementation
 - refreshes from latest checked-in architecture and deployment assumptions
 - prefers PostgreSQL + AWS-scalable design
 - treats Polsia as frontend parity reference only
 
 3. Developer
+- spawn for implementation, refactors, multi-file changes, debugging, test updates, or repo exploration that is more than a trivial edit
 - implements the approved design
 - maintains traceability between requirements, code, and tests
 - must not introduce demo/fake runtime behavior unless explicitly approved
+- for small/simple changes, may use standard OpenClaw file tools directly
+- for larger coding tasks, should use Codex as the coding engine under OpenClaw supervision
 
 4. QA
+- spawn whenever code changed, behavior changed, or validation is non-trivial
 - runs affected-area validation first
 - then quick regression around nearby/high-risk flows
 - uses Playwright for browser testing when UI changes are involved
 - reports real findings, not hand-wavy summaries
+
+5. Deploy
+- spawn only for deploy planning, release readiness checks, environment validation, or explicit deploy actions
+- never deploy without explicit user approval
+- treat deploy as a guarded specialist role, not an autonomous actor
+
+### Subagent Operating Rules
+
+- Use **OpenClaw subagents** as the orchestration layer for specialist roles.
+- Developer may use **Codex CLI / ACP harnesses** as implementation horsepower when the task is large enough, but OpenClaw remains the top-level orchestrator.
+- Do not rely on Codex-native agent hierarchy as the main control plane.
+- Coordinator should give each subagent a tight brief with:
+  - current task and goal
+  - relevant repo path
+  - constraints / guardrails
+  - expected deliverable
+- Coordinator should synthesize results from subagents into a concise user-facing update.
+- Avoid unnecessary fan-out; spawn only the roles needed for the task.
+- For trivial questions or tiny edits, do not spawn a subagent unless it meaningfully helps.
+
+### When Developer Should Use Codex
+
+Developer should usually use Codex when the work is:
+- multi-file
+- exploratory
+- refactor-heavy
+- iterative
+- likely to require repeated search/edit/test cycles
+
+Developer should usually stay local to OpenClaw tools when the work is:
+- a one-line fix
+- a tiny config/doc edit
+- simple file inspection/explanation
+- a very small, low-risk patch
+
+When using Codex, Developer should:
+- frame a focused prompt
+- constrain scope and objectives clearly
+- review Codex output before handing off
+- run or request the right tests before QA handoff
+- never bypass deploy or approval gates
 
 ### ShotSpot Knowledge Base and Task Tracking
 

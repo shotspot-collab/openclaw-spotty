@@ -47,6 +47,12 @@ Include:
 
 Read `references/spawn-templates.md` when preparing a runtime Architect, Developer, QA, or Deploy subagent brief.
 
+## Orchestration aids
+
+Read these when coordinating larger work:
+- `references/orchestration-checklist.md` for deciding which roles to spawn and in what pattern
+- `references/handoff-template.md` for clean role-to-role handoffs
+
 ## Guardrails
 
 - Keep Spotty as the single public-facing persona.

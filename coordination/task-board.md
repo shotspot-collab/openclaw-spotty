@@ -2,10 +2,11 @@
 
 ## Active
 
-- [ ] Migrate remaining live context from repo-local `.codex` dependence into Spotty workspace habits
+- [x] Migrate live execution context into `coordination/active-workstreams.md`
 - [ ] Reconcile payment-flow truth between repo spec language and recent implementation/status notes
 - [ ] Continue booking/payment finalization lane
 - [ ] Continue critical-path integration and dev-gate hardening lane
+- [ ] Continue signed upload/download lifecycle lane
 
 ## Next
 

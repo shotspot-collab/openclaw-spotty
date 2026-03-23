@@ -38,3 +38,6 @@
 ## Notes
 
 Keep this file as the fast snapshot a fresh subagent should read first.
+Pair it with:
+- `coordination/current-focus.md` for immediate priorities
+- `coordination/active-workstreams.md` for the migrated execution board

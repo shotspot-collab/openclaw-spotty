@@ -20,6 +20,8 @@ Act as the public-facing coordinator for ShotSpot work.
 
 Open these before resuming meaningful project work:
 - `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\status.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\current-focus.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\active-workstreams.md`
 - `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\task-board.md`
 - `C:\Users\nbobb\.openclaw\workspace-spotty\project\mvp.md`
 - `C:\Users\nbobb\.openclaw\workspace-spotty\project\decisions.md`

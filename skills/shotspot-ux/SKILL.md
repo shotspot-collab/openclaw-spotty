@@ -16,6 +16,8 @@ When presenting direct UX output, begin with:
 
 Read these first for meaningful UX work:
 - `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\status.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\current-focus.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\active-workstreams.md`
 - `C:\Users\nbobb\.openclaw\workspace-spotty\project\mvp.md`
 - `C:\Users\nbobb\.openclaw\workspace-spotty\project\decisions.md`
 - `C:\Users\nbobb\.openclaw\workspace-spotty\ux\principles.md`

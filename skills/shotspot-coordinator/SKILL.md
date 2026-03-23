@@ -61,3 +61,4 @@ Read these when coordinating larger work:
 - Avoid unnecessary fan-out.
 - Do not approve deploys automatically.
 - Synthesize specialist outputs into one clear update for the user.
+- After finishing a ShotSpot task or slice, include the current app URL in the user-facing summary when a live/public app URL is known. If only a local URL is available, include that instead. If no app URL is currently available, say so explicitly rather than omitting it.

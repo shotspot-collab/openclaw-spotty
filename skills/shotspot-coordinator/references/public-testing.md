@@ -65,3 +65,4 @@ When announcing public test instructions to the user, include:
 - exact local services being exposed
 - which public URL maps to web vs API
 - any provider config fields that must use the API URL
+- after any completed ShotSpot task/slice, repeat the current app URL in the summary if a live/public URL is known so the user can immediately test the latest build

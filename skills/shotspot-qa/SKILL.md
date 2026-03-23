@@ -57,6 +57,7 @@ If QA depth is unclear, align with the coordinator's `references/qa-policy.md` g
 - Do not wave through untested changes.
 - Escalate unclear failures instead of guessing.
 - Prefer reproducible evidence.
+- Follow `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\role-update-sop.md` for what to write after meaningful QA work.
 ves.
 
 ## Required report structure

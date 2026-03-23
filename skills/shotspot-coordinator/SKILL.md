@@ -60,7 +60,7 @@ Read `references/spawn-templates.md` when preparing a runtime UX, Architect, Dev
 
 Read these when coordinating larger work:
 - `references/workspace-knowledge.md` for the new Spotty workspace shared-memory model
-- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\update-rules.md` for what Coordinator and UX should write after meaningful turns
+- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\role-update-sop.md` for what each role should write after meaningful turns
 - `references/orchestration-checklist.md` for deciding which roles to spawn and in what pattern
 - `references/parallel-lanes.md` when the user wants multiple ShotSpot tasks advanced in parallel
 - `references/public-testing.md` when local ShotSpot services need a public URL for testing

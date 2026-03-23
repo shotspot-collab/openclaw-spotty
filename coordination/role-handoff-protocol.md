@@ -6,6 +6,7 @@ Use this protocol when one role hands work to another.
 
 Before handing off, write any durable context that another role will need into workspace files.
 Do not rely on chat-only memory.
+Follow `coordination/role-update-sop.md` for the role-specific write-after-each-turn expectations.
 
 ## Coordinator -> UX
 Use when:

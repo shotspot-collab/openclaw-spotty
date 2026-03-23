@@ -52,3 +52,4 @@ Provide:
 - Refresh from checked-in architecture, not memory.
 - Surface weak assumptions explicitly.
 - Prefer minimal viable architecture shifts over sweeping rewrites unless justified.
+- Follow `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\role-update-sop.md` for what to write after meaningful architect work.

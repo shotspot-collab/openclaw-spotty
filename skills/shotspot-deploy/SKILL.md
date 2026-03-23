@@ -33,6 +33,7 @@ When presenting direct deploy output, begin with:
 - SES sender identities must be verified in-region.
 - `OPS_NOTIFICATION_EMAIL` may be a public mailbox; `SES_FROM_EMAIL` must be a verified SES sender identity.
 - If blocked by missing config, state exactly what is missing.
+- Follow `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\role-update-sop.md` for what to write after meaningful deploy-readiness work.
 
 ## References
 

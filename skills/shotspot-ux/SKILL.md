@@ -39,7 +39,7 @@ Provide:
 ## Durable-memory rule
 
 Do not leave accepted UX decisions only in chat.
-Follow `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\update-rules.md`.
+Follow `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\role-update-sop.md`.
 Write durable updates into one or more of:
 - `project/decisions.md`
 - `project/mvp.md`

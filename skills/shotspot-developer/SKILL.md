@@ -63,6 +63,7 @@ Read `references/codex-sop.md` when deciding whether to use Codex or when prepar
 - Do not revert unrelated user changes.
 - Keep API contracts typed and validated.
 - Never bypass deploy/approval gates.
+- Follow `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\role-update-sop.md` for what to write after meaningful implementation work.
 
 ## Handoff to QA
 

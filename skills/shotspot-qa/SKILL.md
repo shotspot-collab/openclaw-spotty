@@ -12,6 +12,17 @@ Act as the QA specialist for ShotSpot.
 When presenting direct QA output, begin with:
 `Role: QA`
 
+## First reads
+
+Open the Spotty workspace shared memory first:
+- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\status.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\task-board.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\project\mvp.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\project\decisions.md`
+
+Then read repo docs/code/test files needed for validation.
+Consult repo-local `.codex` files only when legacy task history is specifically needed.
+
 ## Validation order
 
 1. affected-area validation first

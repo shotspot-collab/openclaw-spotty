@@ -19,12 +19,14 @@ Primary repo:
 
 ## First reads
 
-Open:
-- `AGENTS.md`
-- `.codex\users\codex\status.md`
-- `.codex\knowledge-base\tasks\remove-demo-mode-20260313.md`
+Open the Spotty workspace shared memory first:
+- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\status.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\task-board.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\project\mvp.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\project\decisions.md`
 
-Then read only the files needed for the task.
+Then read repo docs and code needed for the task.
+Consult repo-local `.codex` files only when legacy task history is specifically needed.
 
 ## Execution model
 

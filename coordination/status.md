@@ -17,17 +17,24 @@
 
 ## Current priorities
 
-1. Keep shared project knowledge centralized in Spotty workspace
-2. Use UX for user-flow and product-decision work
-3. Use Architect for technical design
-4. Use Developer + QA for execution and validation
+1. complete migration of shared coordination memory into Spotty workspace
+2. keep UX as the product-flow decision specialist
+3. reconcile payment-flow truth where repo specs and recent implementation status appear inconsistent
+4. continue critical-path execution with shared workspace docs as first read
 
 ## Current known status
 
 - Existing execution architecture already uses Coordinator, Architect, Developer, QA, and Deploy subagents.
-- UX is being added as a first-class specialist role.
-- `.codex` should no longer be treated as the primary coordination memory.
+- UX is now a first-class specialist role in Spotty workspace.
+- `.codex` is no longer the primary coordination memory.
+- Recent validated work includes proof-of-arrival PIN flow, queue/gallery URL fixes, empty-gallery-after-send fix, and browser QA on the public app URL.
+- Remaining known issue from recent status: authenticated create-session payload previously leaked a localhost booking URL; URL generation consistency remains an area to watch.
+- Recent architect recommendation pointed to two follow-on lanes: booking/payment finalization and critical-path integration plus dev-gate hardening.
+
+## Current public app URL
+
+- `https://msi.taila8c3ab.ts.net/`
 
 ## Notes
 
-Keep this file as the fast snapshot a fresh subagent can read first.
+Keep this file as the fast snapshot a fresh subagent should read first.

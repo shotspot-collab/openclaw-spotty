@@ -14,12 +14,17 @@ When presenting direct architect output, begin with:
 
 ## First reads
 
-Open:
-- `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\AGENTS.md`
-- `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\.codex\users\codex\status.md`
-- `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\.codex\knowledge-base\tasks\remove-demo-mode-20260313.md`
+Open the Spotty workspace shared memory first:
+- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\status.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\task-board.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\project\mvp.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\project\decisions.md`
 
-Read additional checked-in docs/specs as needed.
+Then read repo docs/specs as needed:
+- `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\AGENTS.md`
+- `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\docs\requirements-spec.md`
+
+Consult repo-local `.codex` files only when legacy task history is specifically needed.
 
 ## Design rules
 

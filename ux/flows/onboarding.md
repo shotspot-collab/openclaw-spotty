@@ -40,3 +40,10 @@ Get a walk-up customer from QR scan to confirmed booking with the fewest possibl
 
 - Architect should keep hold/payment state transitions explicit and idempotent
 - Developer should avoid extra page hops or hidden state dependencies in the critical path
+
+## Experience direction
+
+- Primary inspiration for onboarding/booking: Airbnb + Stripe
+- Desired feel: fast, trustworthy, mobile-first, premium-but-simple
+- Visual caution: do not make the QR-entry and booking flow feel like a generic SaaS form wizard or an overly playful event microsite
+- Architect handoff note: when planning booking UX, prioritize immediate slot/price clarity, calm payment confidence, and a minimal number of high-friction moments

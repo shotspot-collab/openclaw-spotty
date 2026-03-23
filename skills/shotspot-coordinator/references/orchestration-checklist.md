@@ -26,9 +26,10 @@ Spawn specialists when:
 
 Default patterns:
 - small bugfix: Developer -> QA
+- UX-sensitive feature: UX -> Architect/Developer -> QA
 - design-sensitive feature: Architect -> Developer -> QA
 - release readiness: Developer/QA -> Deploy
-- planning-only request: Architect only
+- planning-only request: UX or Architect, depending on whether the question is product/flow or technical/system design
 
 Avoid spawning every role unless the task actually needs every role.
 

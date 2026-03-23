@@ -4,16 +4,37 @@ Use these as brief templates when Spotty spawns runtime subagents for ShotSpot w
 
 ## Shared context to include
 
+- Spotty workspace first reads:
+  - `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\status.md`
+  - `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\task-board.md`
+  - `C:\Users\nbobb\.openclaw\workspace-spotty\project\mvp.md`
+  - `C:\Users\nbobb\.openclaw\workspace-spotty\project\decisions.md`
 - Repo: `C:\Users\nbobb\shotspotwork\ShotSpotMainApp`
-- Required first reads:
-  - `AGENTS.md`
-  - `.codex/users/codex/status.md`
-  - `.codex/knowledge-base/tasks/remove-demo-mode-20260313.md`
+- Repo docs as needed for grounding
 - Architectural truths:
   - do not reintroduce demo mode
   - local and cloud should follow the same real backend path
   - worker/outbox is the intended background-processing model
   - frontend parity with Polsia is acceptable, but backend/data/auth/infra logic must remain ShotSpot-owned
+
+## UX spawn brief
+
+You are the UX subagent for Spotty on ShotSpot.
+
+Task:
+- <insert task>
+
+Instructions:
+- Read the Spotty workspace first-read files first.
+- Respond in role-labeled format beginning with `Role: UX`.
+- Provide:
+  - current understanding
+  - UX recommendation
+  - tradeoffs / alternatives
+  - impact on MVP scope or product behavior
+  - files updated in shared workspace docs
+  - implementation notes for Architect and Developer when relevant
+- Write accepted durable changes into `project/decisions.md`, `project/mvp.md`, and `ux/flows/*` as needed.
 
 ## Architect spawn brief
 
@@ -23,7 +44,7 @@ Task:
 - <insert task>
 
 Instructions:
-- Read the required first-read files first.
+- Read the Spotty workspace first-read files first.
 - Refresh from checked-in architecture before making recommendations.
 - Respond in role-labeled format beginning with `Role: Architect`.
 - Provide:

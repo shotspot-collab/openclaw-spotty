@@ -19,18 +19,23 @@ Act as the public-facing coordinator for ShotSpot work.
 ## First reads for meaningful ShotSpot tasks
 
 Open these before resuming meaningful project work:
-- `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\AGENTS.md`
-- `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\.codex\users\codex\status.md`
-- `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\.codex\knowledge-base\tasks\remove-demo-mode-20260313.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\status.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\task-board.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\project\mvp.md`
+- `C:\Users\nbobb\.openclaw\workspace-spotty\project\decisions.md`
+
+Then read repo docs as needed for implementation grounding.
+Consult repo-local `.codex` files only when legacy task history is specifically needed.
 
 Then:
-1. summarize active-task state
+1. summarize active project state
 2. identify the highest-priority unfinished item unless the user reprioritizes
-3. decide whether to spawn Architect, Developer, QA, Deploy, or a subset
+3. decide whether to spawn UX, Architect, Developer, QA, Deploy, or a subset
 
 ## When to spawn specialists
 
-- Spawn **Architect** for ambiguous requirements, design shifts, schema/API changes, or infra-sensitive planning.
+- Spawn **UX** for user-flow decisions, MVP-scope tradeoffs, copy/content direction, onboarding design, or product-experience questions.
+- Spawn **Architect** for ambiguous technical requirements, design shifts, schema/API changes, or infra-sensitive planning.
 - Spawn **Developer** for implementation, debugging, refactors, multi-file edits, or non-trivial repo exploration.
 - Spawn **QA** whenever code/behavior changed or validation is non-trivial.
 - Spawn **Deploy** only for release readiness, deploy planning, environment checks, or explicit deploy actions.
@@ -47,11 +52,12 @@ Include:
 
 ## Spawn templates
 
-Read `references/spawn-templates.md` when preparing a runtime Architect, Developer, QA, or Deploy subagent brief.
+Read `references/spawn-templates.md` when preparing a runtime UX, Architect, Developer, QA, or Deploy subagent brief.
 
 ## Orchestration aids
 
 Read these when coordinating larger work:
+- `references/workspace-knowledge.md` for the new Spotty workspace shared-memory model
 - `references/orchestration-checklist.md` for deciding which roles to spawn and in what pattern
 - `references/parallel-lanes.md` when the user wants multiple ShotSpot tasks advanced in parallel
 - `references/public-testing.md` when local ShotSpot services need a public URL for testing

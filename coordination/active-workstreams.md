@@ -46,12 +46,16 @@ Use it instead of repo-local `.codex` files as the first coordination read.
   - send/publish now rejects no-photo publish attempts
   - session dashboard status derivation improved so uploaded orders move out of pending before publish
 - Remaining work:
-  - signed upload URL issuance contract
+  - add storage signer/service abstraction for upload/download URL issuance
+  - reconcile registration contract around storage keys vs delivery URLs
+  - add signed upload URL issuance contract
   - photo registration path cleanup toward storage-shaped lifecycle
   - server-controlled signed download issuance constraints
   - affected UI validation after contract changes
 - Residual risks:
   - current UI may still expose gallery affordances before publish
+  - current real path still stores inline image payloads/data URLs rather than storage object keys
+  - customer gallery preview behavior will need explicit signed/proxied delivery rules once storage-backed
   - manual `Mark Paid` path remains conceptually inconsistent with Stripe-verified flow
 
 ## Working rule

@@ -29,11 +29,11 @@ Ship a low-friction walk-up booking and photo commerce MVP for ShotSpot.
 - keep local and cloud on the same real backend path
 - keep critical-path status and decision docs in Spotty workspace
 
-## Known architecture tension to resolve
+## Reconciled payment architecture
 
-- repo `requirements-spec.md` still says booking uses Stripe PaymentIntents only
-- recent implementation/status context mentions Stripe Checkout in some places
-- Coordinator / Architect should reconcile this explicitly before treating payment-flow wording as settled truth
+- bookings use Stripe PaymentIntents with webhook-driven finalization
+- gallery/photo purchases currently use Stripe Checkout Sessions, with durable payment persistence still keyed to the resulting Stripe PaymentIntent
+- docs and implementation should treat this as the current MVP truth until an explicit architecture change is accepted
 
 ## Notes
 

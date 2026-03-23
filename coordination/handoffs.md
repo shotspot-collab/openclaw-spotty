@@ -29,3 +29,16 @@ Use this file for short durable role-to-role handoffs when a decision or status 
   - Architect: explicitly separate customer-facing tone from photographer-facing ops tone if a split-system recommendation is best.
 - Files updated: `project/decisions.md`, `ux/flows/onboarding.md`
 - Risks/open questions: payment-flow canonical truth still needs reconciliation; Architect should not assume final payment mechanics beyond the current MVP/decision docs.
+
+## 2026-03-23 10:10 Coordinator -> Developer / QA / Architect
+- Task: Lock shared truth after payment and storage-lane review
+- Context:
+  - Payment architecture is now accepted as hybrid by lane: bookings use Stripe PaymentIntents with webhook-driven finalization; gallery/photo purchases currently use Stripe Checkout Sessions backed by stored PaymentIntent IDs.
+  - Signed upload/download lifecycle remains in progress but is blocked on storage contract/service wiring rather than payment ambiguity.
+  - Main blocker details: missing storage signer abstraction in API dependencies, registration contract drift around storage keys vs delivery URLs, and unresolved preview/download delivery rules for storage-backed media.
+- Ask:
+  - Developer: align repo docs to the accepted payment truth before attempting payment rewrites, then implement storage-backed upload/download contracts from a signer abstraction outward.
+  - QA: validate future payment and gallery work against the lane split rather than a PaymentIntents-only assumption.
+  - Architect: treat webhook-authoritative gallery purchase confirmation as the next payment hardening question, not the canonical payment-truth question.
+- Files updated: `project/decisions.md`, `project/mvp.md`, `project/open-questions.md`, `architecture/system-overview.md`, `coordination/status.md`, `coordination/current-focus.md`, `coordination/active-workstreams.md`, `coordination/task-board.md`
+- Risks/open questions: gallery purchase confirmation remains weaker than booking finalization; storage-backed preview/download behavior still needs explicit contract decisions.

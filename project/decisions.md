@@ -42,3 +42,17 @@ Record accepted cross-agent decisions here.
   - Coordinator should request an Architect output that converts this stack into 2-3 concrete visual/system directions for ShotSpot.
   - Architect should map the stack onto homepage, booking, gallery, checkout, and photographer-dashboard surfaces.
   - UX should keep flow docs aligned as concrete screen decisions are accepted.
+
+## 2026-03-23 - MVP payment architecture is hybrid by lane
+- Owner: Architect / Coordinator
+- Status: accepted
+- Context: Repo docs still described ShotSpot as PaymentIntents-only, but checked-in implementation uses PaymentIntents for booking payments and Stripe Checkout Sessions for gallery/photo purchases.
+- Decision: Canonical MVP payment architecture is hybrid by lane: bookings use Stripe PaymentIntents with webhook-driven finalization; gallery/photo purchases use Stripe Checkout Sessions, with durable records persisted against the resulting PaymentIntent.
+- Impact:
+  - Coordinator, UX, Developer, and QA should stop treating PaymentIntents-only as the current project truth.
+  - Booking and gallery purchase flows should be described separately in docs and planning.
+  - Internal payment persistence remains PaymentIntent-keyed for auditability and reconciliation.
+- Follow-ups:
+  - align repo docs (`AGENTS.md`, `docs/requirements-spec.md`, `docs/api-spec.md`, `docs/domain-state-spec.md`)
+  - decide whether gallery purchase confirmation should be hardened to webhook-authoritative finalization
+  - keep naming and route docs explicit about the lane split

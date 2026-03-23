@@ -3,7 +3,8 @@
 ## Active
 
 - [x] Migrate live execution context into `coordination/active-workstreams.md`
-- [ ] Reconcile payment-flow truth between repo spec language and recent implementation/status notes
+- [x] Reconcile payment-flow truth between repo spec language and recent implementation/status notes
+- [ ] Align workspace and repo docs to accepted hybrid payment architecture
 - [ ] Continue booking/payment finalization lane
 - [ ] Continue critical-path integration and dev-gate hardening lane
 - [ ] Continue signed upload/download lifecycle lane

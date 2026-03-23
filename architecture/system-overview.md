@@ -32,6 +32,7 @@ ShotSpot is a mobile-first walk-up photography workflow with:
 - Do not reintroduce demo mode.
 - Local and cloud should use the same real backend path.
 - Worker/outbox is the intended reliability/background-processing model.
+- Payments are hybrid by lane: bookings use Stripe PaymentIntents; gallery/photo purchases currently use Stripe Checkout Sessions with PaymentIntent-backed persistence.
 - UX decisions should be written into workspace docs, not left in chat.
 
 ## Specialist roles
@@ -45,6 +46,7 @@ ShotSpot is a mobile-first walk-up photography workflow with:
 
 ## Current watch items
 
-- payment-flow wording needs explicit reconciliation
+- gallery purchase confirmation is still weaker than booking finalization and may need webhook-authoritative hardening
 - URL generation consistency in customer-facing flows should remain under scrutiny
 - dev-gate hardening and critical-path integration remain active areas
+- signed upload/download lifecycle still needs storage-backed contract/service wiring

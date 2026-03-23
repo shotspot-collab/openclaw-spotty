@@ -29,6 +29,8 @@
 - `.codex` is no longer the primary coordination memory.
 - Recent validated work includes proof-of-arrival PIN flow, queue/gallery URL fixes, empty-gallery-after-send fix, and browser QA on the public app URL.
 - Remaining known issue from recent status: authenticated create-session payload previously leaked a localhost booking URL; URL generation consistency remains an area to watch.
+- Payment architecture has now been reconciled: bookings use Stripe PaymentIntents; gallery/photo purchases currently use Stripe Checkout Sessions backed by stored PaymentIntent IDs.
+- Signed upload/download lifecycle remains blocked on storage contract/service wiring: missing signer abstraction, registration contract drift, and preview/download delivery rules still need explicit definition.
 - Recent architect recommendation pointed to two follow-on lanes: booking/payment finalization and critical-path integration plus dev-gate hardening.
 
 ## Current public app URL

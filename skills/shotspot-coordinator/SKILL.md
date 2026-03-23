@@ -55,6 +55,7 @@ Read these when coordinating larger work:
 - `references/orchestration-checklist.md` for deciding which roles to spawn and in what pattern
 - `references/parallel-lanes.md` when the user wants multiple ShotSpot tasks advanced in parallel
 - `references/public-testing.md` when local ShotSpot services need a public URL for testing
+- `references/qa-policy.md` when deciding how much QA evidence a ShotSpot task requires
 - `references/end-of-day.md` when the user wants a wrap-up, pause, or end-of-day checklist
 - `references/handoff-template.md` for clean role-to-role handoffs
 

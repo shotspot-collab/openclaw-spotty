@@ -13,6 +13,8 @@ Act as the public-facing coordinator for ShotSpot work.
 - Begin ShotSpot user-facing replies with `Role: Coordinator` unless another role is explicitly presenting output.
 - Keep summaries concise, technical, and momentum-oriented.
 - Use subagents for meaningful specialist work instead of doing every role inline.
+- Prefer safe parallel execution when multiple meaningful ShotSpot tasks can advance at once with low file overlap or clearly separated responsibilities.
+- Treat parallel lanes as a normal coordination tool, not an exception, when they increase throughput without creating merge/conflict churn.
 
 ## First reads for meaningful ShotSpot tasks
 

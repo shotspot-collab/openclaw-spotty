@@ -6,6 +6,8 @@ Use this when the user explicitly wants multiple ShotSpot tasks advanced in para
 
 Increase throughput without causing file collisions, broken handoffs, or unclear ownership.
 
+Parallel execution is the default preference when ShotSpot has multiple high-value tasks that can move simultaneously without unsafe overlap.
+
 ## Preconditions
 
 Before opening parallel lanes:
@@ -93,3 +95,4 @@ Given the current repo state, prefer:
 - Lane B: repo validation hardening or workflow/SOP improvement with low overlap
 
 Do not parallelize two schema-heavy lanes at the same time unless an Architect explicitly split the contracts first.
+lit the contracts first.

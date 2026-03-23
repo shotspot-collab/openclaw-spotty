@@ -37,6 +37,27 @@ Include:
 ## References
 
 Read `references/qa-report-template.md` when producing QA output so the report stays structured and evidence-based.
+If QA depth is unclear, align with the coordinator's `references/qa-policy.md` guidance: browser-flow changes need browser QA, and UI/visual changes need screenshots.
+
+## Guardrails
+
+- Do not wave through untested changes.
+- Escalate unclear failures instead of guessing.
+- Prefer reproducible evidence.
+ves.
+
+## Required report structure
+
+Include:
+- affected areas tested
+- regression areas tested
+- commands run
+- pass/fail
+- residual risks
+
+## References
+
+Read `references/qa-report-template.md` when producing QA output so the report stays structured and evidence-based.
 
 ## Guardrails
 

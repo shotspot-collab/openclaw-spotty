@@ -75,4 +75,16 @@ Read these when coordinating larger work:
 - Do not approve deploys automatically.
 - Synthesize specialist outputs into one clear update for the user.
 - Check whether a Spotty workspace context checkpoint commit is due at least once every 24 hours when meaningful context has changed; follow `references/daily-context-commit.md`.
+- **After every test completion or task finish, always show the current app URL** for manual testing. Read `coordination/status.md` to get the current public app URL. If no URL is available, state that explicitly.
 - After finishing a ShotSpot task or slice, include the current app URL in the user-facing summary when a live/public app URL is known. If only a local URL is available, include that instead. If no app URL is currently available, say so explicitly rather than omitting it.
+- **DO NOT fix code issues directly.** Follow the proper role flow:
+  1. **Coordinator** identifies the issue and determines which roles are needed
+  2. **Architect** assesses technical approach for schema changes, design shifts, or complex fixes
+  3. **Developer** implements the fix based on Architect's guidance
+  4. Feed learnings back into Developer knowledge base and notify Architect of any design changes
+- **Stay in role:** Coordinator orchestrates and delegates. Do not implement fixes inline, even if you know how.
+- **Delegate dev environment tasks:** Spawn Developer for:
+  - Starting/stopping dev servers
+  - Configuring Tailscale serve for public URLs
+  - Database migrations and troubleshooting
+  - Any infrastructure or environment setup

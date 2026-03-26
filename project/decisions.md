@@ -43,7 +43,18 @@ Record accepted cross-agent decisions here.
   - Architect should map the stack onto homepage, booking, gallery, checkout, and photographer-dashboard surfaces.
   - UX should keep flow docs aligned as concrete screen decisions are accepted.
 
-## 2026-03-23 - MVP payment architecture is hybrid by lane
+## 2026-03-24 - Real AWS S3 for local dev and 30-day strict photo retention
+- Owner: Coordinator
+- Status: accepted
+- Context: We need to validate bucket URL strategies and cleanup strategies in reality, rather than relying on local mocks that hide real-world S3 behavior. We also have a strict data privacy/cost requirement.
+- Decision: 
+  1. Local development will use real AWS S3 buckets for upload and delivery (no mock endpoints).
+  2. Strict 30-day retention policy: photos must be deleted 30 days after session is closed (or 30 days from creation if the session remains unclosed).
+  3. Warning system: multiple warning notifications must be sent to the photographer and customer before the 30th-day deletion.
+- Impact: 
+  - Need to implement real AWS SDK S3 presigner adapters immediately instead of local stubs.
+  - Need to build a retention/purge worker that runs daily to issue warnings and execute hard deletions.
+- Follow-ups: Architect to design the S3 adapter interface and the retention worker schedule/notification triggers. Developer to implement.
 - Owner: Architect / Coordinator
 - Status: accepted
 - Context: Repo docs still described ShotSpot as PaymentIntents-only, but checked-in implementation uses PaymentIntents for booking payments and Stripe Checkout Sessions for gallery/photo purchases.

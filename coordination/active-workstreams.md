@@ -45,16 +45,32 @@ Use it instead of repo-local `.codex` files as the first coordination read.
   - empty-gallery regression root cause identified and fixed
   - send/publish now rejects no-photo publish attempts
   - session dashboard status derivation improved so uploaded orders move out of pending before publish
+  - **storage signer/service abstraction implemented and unit tested** (Slice C complete)
+    - `StorageUploadSigner` interface for issuing signed upload URLs (PUT)
+    - `MediaDeliveryService` interface for issuing preview/download URLs (GET)
+    - S3-backed implementations using AWS SDK with presigned URLs
+    - Local stub implementations for development
+    - 14 unit tests covering interface contracts, URL encoding, and separation of concerns
+  - **photo registration contract reconciled to use storage keys** (Slice D complete - 2026-03-25)
+    - Updated photo registration schema to accept `objectKeyOriginal` (S3 object keys) instead of inline data URLs
+    - Added metadata columns to photos table: `originalFilename`, `contentType`, `sizeBytes`
+    - Updated `registerStoragePhotos` repository method to store metadata
+    - Updated route validation to accept optional `fileName`, `mimeType`, `sizeBytes` fields
+    - Updated unit tests for new metadata fields
+    - Added integration tests for storage-based photo flow in `repositories.storage-photos.test.ts`
+    - Created migration `0005_photo_metadata.sql` for new columns
+    - Gallery endpoint (`GET /api/gallery/:token`) uses `MediaDeliveryService.issuePreviewUrl()` for storage keys
+    - Download endpoint (`GET /api/download/:token`) uses `MediaDeliveryService.issueDownloadUrl()` for storage keys
+    - Dependencies wired in `app.ts`: `mediaDeliveryService` and `storageUploadSigner` available in route handlers
+    - Route tests in `photographers.test.ts` verify upload URL issuance and photo registration with metadata
 - Remaining work:
-  - add storage signer/service abstraction for upload/download URL issuance
-  - reconcile registration contract around storage keys vs delivery URLs
-  - add signed upload URL issuance contract
-  - photo registration path cleanup toward storage-shaped lifecycle
-  - server-controlled signed download issuance constraints
-  - affected UI validation after contract changes
+  - Remove or deprecate old inline upload endpoint `POST /api/orders/:id/photos`
+  - End-to-end testing of upload → register → download flow
+  - Frontend UI validation after contract changes
+  - Server-controlled signed download issuance constraints
 - Residual risks:
   - current UI may still expose gallery affordances before publish
-  - current real path still stores inline image payloads/data URLs rather than storage object keys
+  - old inline endpoint `POST /api/orders/:id/photos` still exists and uses data URLs
   - customer gallery preview behavior will need explicit signed/proxied delivery rules once storage-backed
   - manual `Mark Paid` path remains conceptually inconsistent with Stripe-verified flow
 

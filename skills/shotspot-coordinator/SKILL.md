@@ -54,16 +54,17 @@ Never let Developer make design calls unilaterally. If Developer returns with a 
 
 ## Model routing (always pass `model:` when calling sessions_spawn)
 
-| Role      | Model                           |
-|-----------|---------------------------------|
-| UX        | google/gemini-3.1-pro-preview   |
-| Architect | anthropic/claude-sonnet-4-6     |
-| Developer | ollama/kimi-k2.5:cloud          |
-| QA        | ollama/kimi-k2.5:cloud          |
-| Deploy    | ollama/kimi-k2.5:cloud          |
+| Role        | Model                           |
+|-------------|---------------------------------|
+| Coordinator | google/gemini-3.1-pro-preview   |
+| UX          | google/gemini-3.1-pro-preview   |
+| Architect   | anthropic/claude-sonnet-4-6     |
+| Developer   | ollama/kimi-k2.5:cloud          |
+| QA          | ollama/kimi-k2.5:cloud          |
+| Deploy      | ollama/kimi-k2.5:cloud          |
 
-Sonnet only where deep judgment matters: Coordinator and Architect.
-Gemini for UX — strong product reasoning, 1M context, cost-effective.
+Sonnet only where deep judgment matters: Architect.
+Gemini for Coordinator and UX — strong reasoning, 1M context, cost-effective.
 kimi-k2.5:cloud for Developer, QA, Deploy — free via Ollama, capable tool use.
 
 ## Subagent brief template

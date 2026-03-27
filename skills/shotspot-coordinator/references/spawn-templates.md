@@ -2,6 +2,18 @@
 
 Use these as brief templates when Spotty spawns runtime subagents for ShotSpot work.
 
+## Model assignments
+
+Each role uses a specific model. Always pass `model:` when calling `sessions_spawn`:
+
+| Role      | Model                          | Rationale                              |
+|-----------|--------------------------------|----------------------------------------|
+| UX        | `anthropic/claude-sonnet-4-6`  | Product/flow reasoning needs cloud     |
+| Architect | `anthropic/claude-sonnet-4-6`  | Deep design reasoning needs cloud      |
+| Developer | `ollama/kimi-k2.5:cloud`       | Free via Ollama, capable tool use      |
+| QA        | `ollama/kimi-k2.5:cloud`       | Free via Ollama, capable tool use      |
+| Deploy    | `anthropic/claude-sonnet-4-6`  | Release decisions need cloud reasoning |
+
 ## Shared context to include
 
 - Spotty workspace first reads:
@@ -24,6 +36,8 @@ You are the UX subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
+Model: `anthropic/claude-sonnet-4-6`
+
 Instructions:
 - Read the Spotty workspace first-read files first.
 - Respond in role-labeled format beginning with `Role: UX`.
@@ -42,6 +56,8 @@ You are the Architect subagent for Spotty on ShotSpot.
 
 Task:
 - <insert task>
+
+Model: `anthropic/claude-sonnet-4-6`
 
 Instructions:
 - Read the Spotty workspace first-read files first.
@@ -62,6 +78,8 @@ You are the Developer subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
+Model: `ollama/kimi-k2.5:cloud`
+
 Instructions:
 - Read the required first-read files first.
 - Respond in role-labeled format beginning with `Role: Developer`.
@@ -81,6 +99,8 @@ You are the QA subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
+Model: `ollama/kimi-k2.5:cloud`
+
 Instructions:
 - Respond in role-labeled format beginning with `Role: QA`.
 - Run affected-area validation first, then nearby regression checks.
@@ -98,6 +118,8 @@ You are the Deploy subagent for Spotty on ShotSpot.
 
 Task:
 - <insert task>
+
+Model: `anthropic/claude-sonnet-4-6`
 
 Instructions:
 - Respond in role-labeled format beginning with `Role: Deploy`.

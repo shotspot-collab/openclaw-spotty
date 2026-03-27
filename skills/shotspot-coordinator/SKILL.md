@@ -42,6 +42,19 @@ Then:
 - Spawn **QA** whenever code/behavior changed or validation is non-trivial.
 - Spawn **Deploy** only for release readiness, deploy planning, environment checks, or explicit deploy actions.
 
+## Model routing (always pass `model:` when calling sessions_spawn)
+
+| Role      | Model                         |
+|-----------|-------------------------------|
+| UX        | anthropic/claude-sonnet-4-6   |
+| Architect | anthropic/claude-sonnet-4-6   |
+| Developer | ollama/kimi-k2.5:cloud        |
+| QA        | ollama/kimi-k2.5:cloud        |
+| Deploy    | anthropic/claude-sonnet-4-6   |
+
+Cloud models (sonnet) for roles that need design reasoning and judgment.
+kimi-k2.5:cloud for Developer and QA — free via Ollama, capable tool use, good for codebase tasks.
+
 ## Subagent brief template
 
 Include:

@@ -44,16 +44,17 @@ Then:
 
 ## Model routing (always pass `model:` when calling sessions_spawn)
 
-| Role      | Model                         |
-|-----------|-------------------------------|
-| UX        | anthropic/claude-sonnet-4-6   |
-| Architect | anthropic/claude-sonnet-4-6   |
-| Developer | ollama/kimi-k2.5:cloud        |
-| QA        | ollama/kimi-k2.5:cloud        |
-| Deploy    | anthropic/claude-sonnet-4-6   |
+| Role      | Model                           |
+|-----------|---------------------------------|
+| UX        | google/gemini-3.1-pro-preview   |
+| Architect | anthropic/claude-sonnet-4-6     |
+| Developer | ollama/kimi-k2.5:cloud          |
+| QA        | ollama/kimi-k2.5:cloud          |
+| Deploy    | ollama/kimi-k2.5:cloud          |
 
-Cloud models (sonnet) for roles that need design reasoning and judgment.
-kimi-k2.5:cloud for Developer and QA — free via Ollama, capable tool use, good for codebase tasks.
+Sonnet only where deep judgment matters: Coordinator and Architect.
+Gemini for UX — strong product reasoning, 1M context, cost-effective.
+kimi-k2.5:cloud for Developer, QA, Deploy — free via Ollama, capable tool use.
 
 ## Subagent brief template
 

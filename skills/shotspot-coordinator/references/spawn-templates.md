@@ -6,13 +6,13 @@ Use these as brief templates when Spotty spawns runtime subagents for ShotSpot w
 
 Each role uses a specific model. Always pass `model:` when calling `sessions_spawn`:
 
-| Role      | Model                          | Rationale                              |
-|-----------|--------------------------------|----------------------------------------|
-| UX        | `anthropic/claude-sonnet-4-6`  | Product/flow reasoning needs cloud     |
-| Architect | `anthropic/claude-sonnet-4-6`  | Deep design reasoning needs cloud      |
-| Developer | `ollama/kimi-k2.5:cloud`       | Free via Ollama, capable tool use      |
-| QA        | `ollama/kimi-k2.5:cloud`       | Free via Ollama, capable tool use      |
-| Deploy    | `anthropic/claude-sonnet-4-6`  | Release decisions need cloud reasoning |
+| Role      | Model                           | Rationale                                      |
+|-----------|---------------------------------|------------------------------------------------|
+| UX        | `google/gemini-3.1-pro-preview` | Strong product reasoning, 1M context, cheaper  |
+| Architect | `anthropic/claude-sonnet-4-6`   | Deep design reasoning needs sonnet             |
+| Developer | `ollama/kimi-k2.5:cloud`        | Free via Ollama, capable tool use              |
+| QA        | `ollama/kimi-k2.5:cloud`        | Free via Ollama, capable tool use              |
+| Deploy    | `ollama/kimi-k2.5:cloud`        | Checklist work, no deep reasoning needed       |
 
 ## Shared context to include
 
@@ -36,7 +36,7 @@ You are the UX subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
-Model: `anthropic/claude-sonnet-4-6`
+Model: `google/gemini-3.1-pro-preview`
 
 Instructions:
 - Read the Spotty workspace first-read files first.
@@ -119,7 +119,7 @@ You are the Deploy subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
-Model: `anthropic/claude-sonnet-4-6`
+Model: `ollama/kimi-k2.5:cloud`
 
 Instructions:
 - Respond in role-labeled format beginning with `Role: Deploy`.

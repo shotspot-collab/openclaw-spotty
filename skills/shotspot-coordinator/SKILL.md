@@ -37,10 +37,20 @@ Then:
 ## When to spawn specialists
 
 - Spawn **UX** for user-flow decisions, MVP-scope tradeoffs, copy/content direction, onboarding design, or product-experience questions.
-- Spawn **Architect** for ambiguous technical requirements, design shifts, schema/API changes, or infra-sensitive planning.
-- Spawn **Developer** for implementation, debugging, refactors, multi-file edits, or non-trivial repo exploration.
+- Spawn **Architect** for ambiguous technical requirements, design shifts, schema/API changes, new abstractions, or infra-sensitive planning. **Always spawn Architect before Developer when the task involves design decisions.**
+- Spawn **Developer** for implementation only after design is clear. If Developer surfaces a design question mid-task, spawn Architect to resolve it before continuing.
 - Spawn **QA** whenever code/behavior changed or validation is non-trivial.
 - Spawn **Deploy** only for release readiness, deploy planning, environment checks, or explicit deploy actions.
+
+## Architect-first rule
+
+Any task touching schema, API contracts, new interfaces, or cross-module wiring must go through Architect before Developer. Default pattern for non-trivial features:
+
+```
+Architect → Developer → QA
+```
+
+Never let Developer make design calls unilaterally. If Developer returns with a design question, pause and spawn Architect before proceeding.
 
 ## Model routing (always pass `model:` when calling sessions_spawn)
 

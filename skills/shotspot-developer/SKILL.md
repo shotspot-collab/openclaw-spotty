@@ -56,6 +56,21 @@ Consult repo-local `.codex` files only when legacy task history is specifically 
 
 Read `references/codex-sop.md` when deciding whether to use Codex or when preparing/reviewing a Codex-assisted implementation run.
 
+## Architect check-in rules
+
+Developer must defer to Architect for design decisions. Do not proceed unilaterally when:
+
+- The task involves **schema changes** (new tables, columns, migrations)
+- The task involves **API contract changes** (new routes, changed request/response shapes)
+- The task involves **new service abstractions or interfaces**
+- The task involves **cross-module dependencies or wiring**
+- The approach is **ambiguous** or there are multiple reasonable implementation paths
+- The implementation **contradicts or extends** a decision in `project/decisions.md`
+
+In these cases: **stop, surface the question clearly, and request an Architect spawn before writing code.**
+
+For purely mechanical work (bug fixes with a clear root cause, test updates for already-designed contracts, minor config changes): proceed, but document any design assumptions made.
+
 ## Guardrails
 
 - Do not reintroduce demo mode or fake runtime paths.
@@ -63,6 +78,7 @@ Read `references/codex-sop.md` when deciding whether to use Codex or when prepar
 - Do not revert unrelated user changes.
 - Keep API contracts typed and validated.
 - Never bypass deploy/approval gates.
+- **Never design your own architecture inline** — if the task needs design, escalate to Architect first.
 - Follow `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\role-update-sop.md` for what to write after meaningful implementation work.
 
 ## Development Environment Setup

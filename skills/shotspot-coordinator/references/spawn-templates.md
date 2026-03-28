@@ -6,13 +6,16 @@ Use these as brief templates when Spotty spawns runtime subagents for ShotSpot w
 
 Each role uses a specific model. Always pass `model:` when calling `sessions_spawn`:
 
-| Role      | Model                           | Rationale                                      |
-|-----------|---------------------------------|------------------------------------------------|
-| UX        | `google/gemini-3.1-pro-preview` | Strong product reasoning, 1M context, cheaper  |
-| Architect | `anthropic/claude-sonnet-4-6`   | Deep design reasoning needs sonnet             |
-| Developer | `ollama/kimi-k2.5:cloud`        | Free via Ollama, capable tool use              |
-| QA        | `ollama/kimi-k2.5:cloud`        | Free via Ollama, capable tool use              |
-| Deploy    | `ollama/kimi-k2.5:cloud`        | Checklist work, no deep reasoning needed       |
+| Role        | Primary model                   | Fallback(s)                                               | Rationale                                         |
+|-------------|---------------------------------|-----------------------------------------------------------|---------------------------------------------------|
+| Coordinator | `openai/gpt-5.4-mini`           | —                                                         | Fast, cost-effective orchestration                |
+| UX          | `google/gemini-3.1-pro-preview` | —                                                         | Strong product reasoning, 1M context              |
+| Architect   | `anthropic/claude-sonnet-4-6`   | `openai/gpt-5.4-mini`                                     | Deep design reasoning needs sonnet                |
+| Developer   | `qwen3-coder` (if available)    | `mistral/devstral-2` → `openai/gpt-5.4-mini`              | Strong code generation; degrade gracefully        |
+| QA          | `openai/gpt-5.4-nano`           | `anthropic/claude-haiku-4.5` (if available)               | Fast, cheap validation; haiku as backup           |
+| Deploy      | `openai/gpt-5.4-mini`           | `anthropic/claude-haiku-4.5` (if available)               | Checklist work, no deep reasoning needed          |
+
+If the primary model is unavailable, try fallbacks in order. Note which fallback was used in the handoff.
 
 ## Shared context to include
 
@@ -57,7 +60,7 @@ You are the Architect subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
-Model: `anthropic/claude-sonnet-4-6`
+Model: `anthropic/claude-sonnet-4-6` (fallback: `openai/gpt-5.4-mini`)
 
 Instructions:
 - Read the Spotty workspace first-read files first.
@@ -78,7 +81,7 @@ You are the Developer subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
-Model: `ollama/kimi-k2.5:cloud`
+Model: `qwen3-coder` (fallback 1: `mistral/devstral-2`, fallback 2: `openai/gpt-5.4-mini`)
 
 Instructions:
 - Read the required first-read files first.
@@ -99,7 +102,7 @@ You are the QA subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
-Model: `ollama/kimi-k2.5:cloud`
+Model: `openai/gpt-5.4-nano` (fallback: `anthropic/claude-haiku-4.5` if available)
 
 Instructions:
 - Respond in role-labeled format beginning with `Role: QA`.
@@ -119,7 +122,7 @@ You are the Deploy subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
-Model: `ollama/kimi-k2.5:cloud`
+Model: `openai/gpt-5.4-mini` (fallback: `anthropic/claude-haiku-4.5` if available)
 
 Instructions:
 - Respond in role-labeled format beginning with `Role: Deploy`.

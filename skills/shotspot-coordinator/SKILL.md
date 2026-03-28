@@ -54,18 +54,29 @@ Never let Developer make design calls unilaterally. If Developer returns with a 
 
 ## Model routing (always pass `model:` when calling sessions_spawn)
 
-| Role        | Model                           |
-|-------------|---------------------------------|
-| Coordinator | google/gemini-3.1-pro-preview   |
-| UX          | google/gemini-3.1-pro-preview   |
-| Architect   | anthropic/claude-sonnet-4-6     |
-| Developer   | ollama/kimi-k2.5:cloud          |
-| QA          | ollama/kimi-k2.5:cloud          |
-| Deploy      | ollama/kimi-k2.5:cloud          |
+| Role        | Primary model                   | Fallback(s)                                               |
+|-------------|---------------------------------|-----------------------------------------------------------|
+| Coordinator | openai/gpt-5.4-mini             | —                                                         |
+| UX          | google/gemini-3.1-pro-preview   | —                                                         |
+| Architect   | anthropic/claude-sonnet-4-6     | openai/gpt-5.4-mini                                       |
+| Developer   | qwen3-coder (if available)      | mistral/devstral-2 → openai/gpt-5.4-mini                  |
+| QA          | openai/gpt-5.4-nano             | anthropic/claude-haiku-4.5 (if available)                 |
+| Deploy      | openai/gpt-5.4-mini             | anthropic/claude-haiku-4.5 (if available)                 |
 
-Sonnet only where deep judgment matters: Architect.
-Gemini for Coordinator and UX — strong reasoning, 1M context, cost-effective.
-kimi-k2.5:cloud for Developer, QA, Deploy — free via Ollama, capable tool use.
+**Fallback policy:** Try primary first. On failure or model unavailability, fall through the listed fallbacks in order. Log which fallback was used in the handoff note.
+
+## Routing by task complexity
+
+| Complexity | Pipeline                                                                                      |
+|------------|-----------------------------------------------------------------------------------------------|
+| Low        | Coordinator → Developer → QA → Deploy                                                        |
+| Medium     | Coordinator → Architect → Developer → QA → Deploy                                            |
+| High       | Coordinator → Architect → Developer → QA → Deploy; if Developer fails twice, escalate to Architect for stronger-model re-design before retrying |
+
+**Complexity signals:**
+- **Low:** isolated bug fix, minor copy/config change, no schema/API impact
+- **Medium:** new feature with clear design, cross-module touch, schema change
+- **High:** ambiguous requirements, multiple interacting systems, prior Developer failures, significant architectural risk
 
 ## Subagent brief template
 

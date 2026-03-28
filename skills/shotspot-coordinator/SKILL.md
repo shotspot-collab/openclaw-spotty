@@ -59,7 +59,7 @@ Never let Developer make design calls unilaterally. If Developer returns with a 
 | Coordinator | openai/gpt-5.4-mini             | —                                                         |
 | UX          | google/gemini-3.1-pro-preview   | —                                                         |
 | Architect   | anthropic/claude-sonnet-4-6     | openai/gpt-5.4-mini                                       |
-| Developer   | qwen3-coder (if available)      | mistral/devstral-2512 → openai/gpt-5.4-mini               |
+| Developer   | qwen3-coder (if available)      | mistral/devstral-medium-latest → openai/gpt-5.4-mini               |
 | QA          | openai/gpt-5.4-nano             | anthropic/claude-haiku-4-5 (if available)                 |
 | Deploy      | openai/gpt-5.4-mini             | anthropic/claude-haiku-4-5 (if available)                 |
 

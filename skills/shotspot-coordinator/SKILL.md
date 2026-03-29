@@ -59,7 +59,7 @@ Never let Developer make design calls unilaterally. If Developer returns with a 
 | Coordinator | openai-codex/gpt-5.4-mini       | anthropic/claude-sonnet-4-6                               |
 | UX          | google/gemini-3.1-pro-preview   | —                                                         |
 | Architect   | anthropic/claude-sonnet-4-6     | openai-codex/gpt-5.4-mini                                 |
-| Developer   | anthropic/claude-sonnet-4-6     | openai-codex/gpt-5.4-mini (Mistral/Codestral keys are 401 - do not use) |
+| Developer   | mistral/codestral-latest        | openai-codex/gpt-5.4-mini (do NOT use claude-sonnet or kimi-k2.5)       |
 | QA          | google/gemini-3.1-pro-preview   | anthropic/claude-sonnet-4-6                               |
 | Deploy      | google/gemini-3.1-pro-preview   | anthropic/claude-sonnet-4-6                               |
 

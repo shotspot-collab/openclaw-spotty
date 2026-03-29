@@ -326,6 +326,9 @@ canvas#factory { position: absolute; inset: 0; width: 100%; height: 100%; }
         <button class="tab-btn active" id="tab-agents-btn" onclick="switchTab('agents')">
           🤖 Agents <span class="badge" id="ag-badge">–</span>
         </button>
+        <button class="tab-btn" id="tab-done-btn" onclick="switchTab('done')">
+          🛑 Done Lanes
+        </button>
         <button class="tab-btn" id="tab-files-btn" onclick="switchTab('files')">
           📁 Files
         </button>
@@ -335,6 +338,13 @@ canvas#factory { position: absolute; inset: 0; width: 100%; height: 100%; }
       <div class="tab-pane active" id="tab-agents">
         <div class="agents-scroll" id="agents-list">
           <div class="empty">Connecting…</div>
+        </div>
+      </div>
+
+      <!-- DONE pane -->
+      <div class="tab-pane" id="tab-done">
+        <div class="agents-scroll" id="done-list">
+          <div class="empty">No done lanes yet.</div>
         </div>
       </div>
 
@@ -357,6 +367,7 @@ canvas#factory { position: absolute; inset: 0; width: 100%; height: 100%; }
       <div class="ph">🏭 ShotSpot Factory</div>
       <div class="factory-wrap">
         <canvas id="factory"></canvas>
+        <div id="lane-summary" style="display:none;position:absolute;inset:0;background:#0a0c10;padding:24px;overflow-y:auto;z-index:10;"></div>
         <div class="factory-legend">
           <div class="leg-row"><div class="leg-dot" style="background:var(--success)"></div>Running</div>
           <div class="leg-row"><div class="leg-dot" style="background:var(--muted)"></div>Idle / Done</div>
@@ -510,9 +521,11 @@ function buildTooltipInfo(worker) {
 function switchTab(tab) {
   // Buttons
   $('tab-agents-btn').classList.toggle('active', tab === 'agents');
+  $('tab-done-btn').classList.toggle('active', tab === 'done');
   $('tab-files-btn').classList.toggle('active', tab === 'files');
   // Panes
   $('tab-agents').classList.toggle('active', tab === 'agents');
+  $('tab-done').classList.toggle('active', tab === 'done');
   $('tab-files').classList.toggle('active', tab === 'files');
 }
 
@@ -715,13 +728,102 @@ function buildLanes(sessions) {
 }
 
 // ─── Update factory state from sessions ───────────────────────────────────
+let currentDoneLanes = [];
+
+function renderDoneLanes(doneLanes) {
+  currentDoneLanes = doneLanes;
+  const dlList = $('done-list');
+  if (!doneLanes.length) {
+    dlList.innerHTML = '<div class="empty">No done lanes yet.</div>';
+    return;
+  }
+  
+  dlList.innerHTML = doneLanes.map((lane, i) => {
+    const coord = lane.coordinator || {};
+    const label = coord.label || coord.displayName || coord.key || 'Unknown Lane';
+    const subCount = lane.subagents.length;
+    return `<div class="acard s-done" onclick="showLaneSummary(${i})" style="cursor:pointer">
+      <div class="acard-top">
+        <div class="acard-label">🏁 ${esc(label)}</div>
+      </div>
+      <div class="acard-meta">
+        <span>🤖 ${subCount} subagents</span>
+        <span>⏱ ${fmtMs(coord.runtimeMs)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showLaneSummary(idx) {
+  const lane = currentDoneLanes[idx];
+  if (!lane) return;
+  
+  const coord = lane.coordinator || {};
+  const sumDiv = $('lane-summary');
+  
+  // Hide canvas, show summary
+  $('factory').style.display = 'none';
+  sumDiv.style.display = 'block';
+  
+  // Build HTML
+  let html = `
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:16px;">
+      <h2 style="margin:0;color:var(--text);font-size:16px">🏁 Lane Summary: ${esc(coord.label || coord.key || 'Unknown')}</h2>
+      <button onclick="closeLaneSummary()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:600">Back to Live View</button>
+    </div>
+    <div class="md" style="max-width:100%">
+      <h3>Coordinator Task</h3>
+      <p style="color:var(--text2)"><strong>Status:</strong> <span style="color:var(--text)">${coord.status || 'unknown'}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <strong>Total Runtime:</strong> <span style="color:var(--text)">${fmtMs(coord.runtimeMs)}</span> &nbsp;&nbsp;|&nbsp;&nbsp; <strong>Tokens:</strong> <span style="color:var(--text)">${fmtTokens(coord) || '0'}</span></p>
+      <div style="background:var(--bg2);padding:14px;border-radius:8px;border:1px solid var(--border);margin-top:12px;white-space:pre-wrap;font-family:'Cascadia Code',Consolas,monospace;font-size:12px;color:var(--text);max-height:300px;overflow-y:auto">${esc(coord.summary || coord.task || 'No task/summary available.')}</div>
+      
+      <h3 style="margin-top:28px;margin-bottom:12px">Subagents</h3>
+  `;
+  
+  if (!lane.subagents.length) {
+    html += `<p style="color:var(--muted)">No subagents were spawned in this lane.</p>`;
+  } else {
+    html += `<table style="width:100%;text-align:left;border-collapse:collapse;">
+      <thead><tr>
+        <th style="padding:8px;border-bottom:1px solid var(--border);color:var(--text2)">Role</th>
+        <th style="padding:8px;border-bottom:1px solid var(--border);color:var(--text2)">Model</th>
+        <th style="padding:8px;border-bottom:1px solid var(--border);color:var(--text2)">Tokens</th>
+        <th style="padding:8px;border-bottom:1px solid var(--border)">Runtime</th>
+      </tr></thead>
+      <tbody>
+        ${lane.subagents.map(s => `<tr>
+          <td style="padding:8px;border-bottom:1px solid var(--border)">${esc(inferRole(s) || s.label || s.key)}</td>
+          <td style="padding:8px;border-bottom:1px solid var(--border)">${esc(shortenModel(s.model))}</td>
+          <td style="padding:8px;border-bottom:1px solid var(--border)">${fmtTokens(s) || '0'}</td>
+          <td style="padding:8px;border-bottom:1px solid var(--border)">${fmtMs(s.runtimeMs)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  }
+  
+  html += `</div>`;
+  sumDiv.innerHTML = html;
+}
+
+function closeLaneSummary() {
+  $('lane-summary').style.display = 'none';
+  $('factory').style.display = 'block';
+}
+
 function updateFactoryState(sessions) {
   if (!sessions) return;
 
-  const newLanes = buildLanes(sessions);
+  const allLanes = buildLanes(sessions);
+  const activeLanes = [];
+  const doneLanes = [];
+
+  allLanes.forEach(lane => {
+    const isRunning = (lane.coordinator?.status === 'running') || lane.subagents.some(s => s.status === 'running');
+    if (isRunning) activeLanes.push(lane);
+    else doneLanes.push(lane);
+  });
 
   // Preserve beltPkgs across updates by matching lanes
-  newLanes.forEach((lane, li) => {
+  activeLanes.forEach((lane, li) => {
     const prev = factoryLanes[li];
     if (prev) {
       lane.beltPkgs = prev.beltPkgs || [];
@@ -746,7 +848,10 @@ function updateFactoryState(sessions) {
     lane.roleMap = roleMap;
   });
 
-  factoryLanes = newLanes;
+  factoryLanes = activeLanes;
+  
+  doneLanes.sort((a,b) => (b.coordinator?.startedAt || 0) - (a.coordinator?.startedAt || 0));
+  renderDoneLanes(doneLanes.slice(0, 10));
 }
 
 // Build role→{status,session} map for a lane

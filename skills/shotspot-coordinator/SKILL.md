@@ -127,6 +127,7 @@ After QA passes for any task:
    - repo path: `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\`
 3. Report the commit hash and branch name to the user after push completes.
 4. Do NOT skip this step — every QA-passing task must end with a committed push unless the user explicitly says otherwise.
+5. **Also commit the Spotty workspace** after each completed task: run `git add -A && git commit -m "<brief summary of task>" && git push` in `C:\Users\nbobb\.openclaw\workspace-spotty\` to persist any updated coordination files, skills, memory, or SOP changes. Do this in the same post-QA step, either inline or as part of the Developer commit brief.
 
 ## Gateway API access rules
 

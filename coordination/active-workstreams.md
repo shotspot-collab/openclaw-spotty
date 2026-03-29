@@ -72,11 +72,11 @@ Use it instead of repo-local `.codex` files as the first coordination read.
     - Frontend uses `getUploadUrl` endpoint for presigned S3 uploads
     - Direct browser-to-S3 upload followed by photo registration with storage keys
 - Remaining work:
-  - Remove or deprecate old inline upload endpoint `POST /api/orders/:id/photos`
-  - End-to-end testing of upload → register → download flow
-  - Frontend UI validation after contract changes
-  - Server-controlled signed download issuance constraints
-- Residual risks:
+  - Remove or deprecate old inline upload endpoint `POST /api/orders/:id/photos` (Done 2026-03-28)
+  - End-to-end testing of upload → register → download flow (Done 2026-03-28)
+  - Frontend UI validation after contract changes (Done 2026-03-28)
+  - Server-controlled signed download issuance constraints (Done 2026-03-28)
+- Status: **Complete** (Workstream 3 finished and committed 2026-03-28)
   - current UI may still expose gallery affordances before publish
   - old inline endpoint `POST /api/orders/:id/photos` still exists and uses data URLs
   - customer gallery preview behavior will need explicit signed/proxied delivery rules once storage-backed

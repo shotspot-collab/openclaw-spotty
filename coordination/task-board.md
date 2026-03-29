@@ -12,12 +12,15 @@
 - [ ] Continue booking/payment finalization lane
 - [ ] Continue critical-path integration and dev-gate hardening lane
 - [ ] Fix test isolation issues in repository integration tests
-- [ ] Continue signed upload/download lifecycle lane (remaining: E2E testing)
+- [x] Continue signed upload/download lifecycle lane (remaining: E2E testing) - COMPLETE 2026-03-28
 
 ## Next
 
-- [ ] Use UX for onboarding / queue / gallery flow decisions as they arise
-- [ ] Add concise architecture summaries into workspace if repo technical docs remain too deep for quick coordination reads
+- [ ] Fix Worker syntax error (`apps/worker/src/retention.mjs`) to enable background jobs again
+- [ ] Continue booking/payment finalization lane (Stripe webhook authoritative flow)
+- [ ] Continue critical-path integration and dev-gate hardening lane
+- [ ] Fix test isolation issues in repository integration tests
+- [ ] **[UX → Architect]** Review `ux/architect-brief.md` and produce: (1) token alignment plan for `tokens.ts`, (2) component gap analysis (masonry grid, floating cart pill, sticky CTA bar), (3) Developer delivery plan for prototype and production screens. Brief is fully locked and committed. Do not start Developer implementation until Architect gap analysis is done.
 
 ## Done
 

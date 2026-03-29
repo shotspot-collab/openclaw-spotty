@@ -47,6 +47,29 @@ Use this file for short durable role-to-role handoffs when a decision or status 
 - Files updated: `project/*`, `coordination/*`, `ux/*`, role skills under `skills/`
 - Risks/open questions: payment-flow wording appears inconsistent between repo requirements and recent implementation/status notes; reconcile before assuming settled truth.
 
+## 2026-03-28 20:00 Developer -> Coordinator / QA
+- Task: Complete signed upload/download lifecycle (Slices A-D)
+- Context: The signed upload/download lifecycle is now fully implemented. This includes:
+  - Slice A: Read contract and compatibility adapter for storage-backed photos
+  - Slice B: Storage-backed upload endpoints with presigned URL support
+  - Slice C: Storage signer/service abstraction (S3StorageUploadSigner, S3MediaDeliveryService)
+  - Slice D: Photo registration contract using storage keys with metadata support
+  - Real S3 adapters using AWS SDK v3 with presigned URLs
+  - 30-day retention worker with warning notifications
+  - Dashboard upload flow migrated to signed URLs
+  - Old inline endpoint `POST /api/orders/:id/photos` removed (returns 404)
+- Ask:
+  - QA: Run E2E tests for the complete upload -> register -> download flow. Note: 11 integration tests are failing due to test isolation issues (foreign key constraint violations in parallel runs), not code bugs.
+  - Coordinator: Schedule remaining work: fix test isolation, E2E testing, and booking/payment finalization lane.
+- Files updated:
+  - `apps/api/src/services/media.ts` - S3 signer and delivery service implementations
+  - `apps/api/src/services/media.test.ts` - Unit tests for media services
+  - `apps/api/src/worker/retention.ts` - 30-day retention worker
+  - `apps/web/app/dashboard/upload.tsx` - Migrated to signed URL upload flow
+  - `apps/api/src/routes/parity-real.ts` - Removed old inline endpoint
+  - All previous Slice A-D files
+- Risks/open questions: Test isolation issues need to be resolved before CI can be considered green. The failing tests are in repositories.paid-gallery.test.ts and repositories.storage-photos.test.ts.
+
 ## 2026-03-25 17:10 Developer -> Coordinator / QA
 - Task: Slice D - Reconcile photo registration contract to use storage keys
 - Context: Photo registration now fully supports storage-backed lifecycle. The registration endpoint `POST /api/photographers/me/photos` accepts S3 object keys (storageKeyOriginal) and optional metadata (fileName, mimeType, sizeBytes). Gallery and download endpoints already use MediaDeliveryService for signed URLs. Database schema updated with new metadata columns (originalFilename, contentType, sizeBytes).

@@ -2,39 +2,57 @@
 
 Use these as brief templates when Spotty spawns runtime subagents for ShotSpot work.
 
+## Repo and workspace paths
+
+- **ShotSpot repo:** `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\`
+- **Spotty workspace:** `C:\Users\nbobb\.openclaw\workspace-spotty\`
+
+Always pass `cwd: C:\Users\nbobb\shotspotwork\ShotSpotMainApp\` when spawning subagents working in the repo.
+
 ## Model assignments
 
 Each role uses a specific model. Always pass `model:` when calling `sessions_spawn`:
 
-| Role        | Primary model                   | Fallback(s)                                               | Rationale                                         |
-|-------------|---------------------------------|-----------------------------------------------------------|---------------------------------------------------|
-| Coordinator | `openai/gpt-5.4-mini`           | —                                                         | Fast, cost-effective orchestration                |
-| UX          | `google/gemini-3.1-pro-preview` | —                                                         | Strong product reasoning, 1M context              |
-| Architect   | `anthropic/claude-sonnet-4-6`   | `openai/gpt-5.4-mini`                                     | Deep design reasoning needs sonnet                |
-| Developer   | `qwen3-coder` (if available)    | `mistral/devstral-medium-latest` → `openai/gpt-5.4-mini`           | Strong code generation; degrade gracefully        |
-| QA          | `openai/gpt-5.4-nano`           | `anthropic/claude-haiku-4-5` (if available)               | Fast, cheap validation; haiku as backup           |
-| Deploy      | `openai/gpt-5.4-mini`           | `anthropic/claude-haiku-4-5` (if available)               | Checklist work, no deep reasoning needed          |
+| Role        | Primary model                   | Fallback(s)                       | Rationale                                    |
+|-------------|---------------------------------|-----------------------------------|----------------------------------------------|
+| Coordinator | openai-codex/gpt-5.4-mini       | anthropic/claude-sonnet-4-6       | Fast, cost-effective orchestration           |
+| UX          | google/gemini-3.1-pro-preview   | —                                 | Strong product reasoning, 1M context         |
+| Architect   | anthropic/claude-sonnet-4-6     | openai-codex/gpt-5.4-mini         | Deep design reasoning needs sonnet           |
+| Developer   | codestral/codestral-2501        | — (never sonnet)                  | Strong code generation                       |
+| QA          | google/gemini-3.1-pro-preview   | anthropic/claude-sonnet-4-6       | Fast, broad validation; 1M context           |
+| Deploy      | google/gemini-3.1-pro-preview   | anthropic/claude-sonnet-4-6       | Checklist work; 1M context                   |
 
 If the primary model is unavailable, try fallbacks in order. Note which fallback was used in the handoff.
 
-## Shared context to include
+## Shared context to include in every brief
 
+- Repo: `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\`
 - Spotty workspace first reads:
   - `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\status.md`
   - `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\task-board.md`
   - `C:\Users\nbobb\.openclaw\workspace-spotty\project\mvp.md`
   - `C:\Users\nbobb\.openclaw\workspace-spotty\project\decisions.md`
-- Repo: `C:\Users\nbobb\shotspotwork\ShotSpotMainApp`
-- Repo docs as needed for grounding
 - Architectural truths:
   - do not reintroduce demo mode
   - local and cloud should follow the same real backend path
   - worker/outbox is the intended background-processing model
   - frontend parity with Polsia is acceptable, but backend/data/auth/infra logic must remain ShotSpot-owned
 
+## sessions_spawn parameters (always include)
+
+```
+cwd: C:\Users\nbobb\shotspotwork\ShotSpotMainApp\
+model: <role model from table above>
+runtime: subagent
+mode: run
+```
+
 ## UX spawn brief
 
 You are the UX subagent for Spotty on ShotSpot.
+
+**Repo:** `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\`
+**Spotty workspace:** `C:\Users\nbobb\.openclaw\workspace-spotty\`
 
 Task:
 - <insert task>
@@ -57,10 +75,13 @@ Instructions:
 
 You are the Architect subagent for Spotty on ShotSpot.
 
+**Repo:** `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\`
+**Spotty workspace:** `C:\Users\nbobb\.openclaw\workspace-spotty\`
+
 Task:
 - <insert task>
 
-Model: `anthropic/claude-sonnet-4-6` (fallback: `openai/gpt-5.4-mini`)
+Model: `anthropic/claude-sonnet-4-6` (fallback: `openai-codex/gpt-5.4-mini`)
 
 Instructions:
 - Read the Spotty workspace first-read files first.
@@ -78,10 +99,13 @@ Instructions:
 
 You are the Developer subagent for Spotty on ShotSpot.
 
+**Repo:** `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\`
+**Spotty workspace:** `C:\Users\nbobb\.openclaw\workspace-spotty\`
+
 Task:
 - <insert task>
 
-Model: `qwen3-coder` (fallback 1: `mistral/devstral-medium-latest`, fallback 2: `openai/gpt-5.4-mini`)
+Model: `codestral/codestral-2501` (**never use `anthropic/claude-sonnet-4-6` for Developer**)
 
 Instructions:
 - Read the required first-read files first.
@@ -99,10 +123,13 @@ Instructions:
 
 You are the QA subagent for Spotty on ShotSpot.
 
+**Repo:** `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\`
+**Spotty workspace:** `C:\Users\nbobb\.openclaw\workspace-spotty\`
+
 Task:
 - <insert task>
 
-Model: `openai/gpt-5.4-nano` (fallback: `anthropic/claude-haiku-4-5` if available)
+Model: `google/gemini-3.1-pro-preview` (fallback: `anthropic/claude-sonnet-4-6`)
 
 Instructions:
 - Respond in role-labeled format beginning with `Role: QA`.
@@ -119,10 +146,13 @@ Instructions:
 
 You are the Deploy subagent for Spotty on ShotSpot.
 
+**Repo:** `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\`
+**Spotty workspace:** `C:\Users\nbobb\.openclaw\workspace-spotty\`
+
 Task:
 - <insert task>
 
-Model: `openai/gpt-5.4-mini` (fallback: `anthropic/claude-haiku-4-5` if available)
+Model: `google/gemini-3.1-pro-preview` (fallback: `anthropic/claude-sonnet-4-6`)
 
 Instructions:
 - Respond in role-labeled format beginning with `Role: Deploy`.

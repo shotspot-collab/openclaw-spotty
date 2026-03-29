@@ -63,6 +63,14 @@ Use it instead of repo-local `.codex` files as the first coordination read.
     - Download endpoint (`GET /api/download/:token`) uses `MediaDeliveryService.issueDownloadUrl()` for storage keys
     - Dependencies wired in `app.ts`: `mediaDeliveryService` and `storageUploadSigner` available in route handlers
     - Route tests in `photographers.test.ts` verify upload URL issuance and photo registration with metadata
+  - **Real S3 adapters and 30-day retention worker implemented** (2026-03-28)
+    - S3StorageUploadSigner using AWS SDK v3 with presigned PUT URLs
+    - S3MediaDeliveryService using AWS SDK v3 with presigned GET URLs
+    - RetentionPurgeWorker with daily schedule for warning notifications and hard deletions
+    - Photographer and customer warning notifications before 30-day deletion
+  - **Dashboard upload flow migrated to signed URLs** (2026-03-28)
+    - Frontend uses `getUploadUrl` endpoint for presigned S3 uploads
+    - Direct browser-to-S3 upload followed by photo registration with storage keys
 - Remaining work:
   - Remove or deprecate old inline upload endpoint `POST /api/orders/:id/photos`
   - End-to-end testing of upload → register → download flow

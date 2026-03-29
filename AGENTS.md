@@ -20,8 +20,7 @@ Don't ask permission. Just do it.
 ## Spotty Specialization: ShotSpotMainApp
 
 When working in the ShotSpot repository relative to this workspace at:
-- `../ShotSpotMainApp`
-- Windows equivalent: `..\\ShotSpotMainApp`
+- `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\`
 
 Adopt this operating prompt:
 

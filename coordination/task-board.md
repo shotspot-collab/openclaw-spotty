@@ -6,10 +6,13 @@
 - [x] Reconcile payment-flow truth between repo spec language and recent implementation/status notes
 - [x] Implement storage signer/service abstraction (Slice C of signed upload/download lifecycle)
 - [x] Reconcile photo registration contract to use storage keys (Slice D of signed upload/download lifecycle) - COMPLETE 2026-03-25
-- [ ] Align workspace and repo docs to accepted hybrid payment architecture
+- [x] Implement real S3 adapters and 30-day retention worker
+- [x] Migrate dashboard upload flow to signed URLs
+- [x] Align workspace and repo docs to accepted hybrid payment architecture
 - [ ] Continue booking/payment finalization lane
 - [ ] Continue critical-path integration and dev-gate hardening lane
-- [ ] Continue signed upload/download lifecycle lane (remaining: remove old inline endpoint, E2E testing)
+- [ ] Fix test isolation issues in repository integration tests
+- [ ] Continue signed upload/download lifecycle lane (remaining: E2E testing)
 
 ## Next
 

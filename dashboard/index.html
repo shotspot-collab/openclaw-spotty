@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🐾 Spotty Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+/* ═══════════════════════════════════════════════════════ RESET / BASE */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #0d0f14;
+  --bg2:     #141720;
+  --bg3:     #1c2030;
+  --border:  #2a2f42;
+  --accent:  #6c8eff;
+  --success: #3ecf8e;
+  --warn:    #f5c842;
+  --danger:  #ff5c5c;
+  --muted:   #6b7280;
+  --text:    #e2e8f0;
+  --text2:   #9ca3af;
+  --r:       10px;
+}
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════ LAYOUT */
+.app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+
+/* Header */
+header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 9px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo { font-size: 20px; line-height: 1; }
+header h1 { font-size: 17px; font-weight: 700; }
+header h1 em { color: var(--accent); font-style: normal; }
+.hdr-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text2);
+}
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  display: inline-block;
+  margin-right: 5px;
+  transition: background .3s;
+}
+.status-dot.ok   { background: var(--success); box-shadow: 0 0 5px var(--success); }
+.status-dot.err  { background: var(--danger); }
+.status-dot.spin { animation: blink 1.2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+/* Panels */
+.panels {
+  display: grid;
+  grid-template-columns: 480px 1fr;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+}
+
+/* Left panel — full height, tabbed */
+.panel-left {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+
+/* Factory spans right column */
+.p-factory {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Panel header */
+.ph {
+  padding: 8px 13px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.ph .badge {
+  margin-left: auto;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+/* ═══════════════════════════════════════════════════════ TAB SWITCHER */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.tab-btn {
+  flex: 1;
+  padding: 7px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color .12s, border-color .12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Tab panes */
+.tab-pane { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+.tab-pane.active { display: flex; }
+
+/* ═══════════════════════════════════════════════════════ SUBAGENTS PANEL */
+.agents-scroll { overflow-y: auto; flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 7px; }
+
+.acard {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: var(--r);
+  padding: 9px 11px;
+  cursor: default;
+  transition: border-color .12s;
+}
+.acard:hover { border-color: var(--accent); }
+.acard.s-running { border-left-color: var(--success); }
+.acard.s-done    { border-left-color: var(--muted); }
+.acard.s-error   { border-left-color: var(--danger); }
+.acard.s-failed  { border-left-color: var(--danger); }
+.acard.s-idle    { border-left-color: var(--warn); }
+
+.acard-top { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+.acard-label { font-weight: 600; font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pill {
+  font-size: 9px; font-weight: 700;
+  padding: 1px 6px; border-radius: 20px;
+  text-transform: uppercase; letter-spacing: .5px;
+  flex-shrink: 0;
+}
+.pill-running { background: rgba(62,207,142,.18); color: var(--success); }
+.pill-done    { background: rgba(107,114,128,.18); color: var(--muted); }
+.pill-error   { background: rgba(255,92,92,.18); color: var(--danger); }
+.pill-failed  { background: rgba(255,92,92,.18); color: var(--danger); }
+.pill-killed  { background: rgba(107,114,128,.18); color: var(--muted); }
+.pill-idle    { background: rgba(245,200,66,.12); color: var(--warn); }
+
+.acard-meta { font-size: 12px; color: var(--text2); display: flex; gap: 9px; flex-wrap: wrap; }
+.acard-key  { font-size: 10px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* TPS metrics row */
+.acard-perf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 10px;
+  font-family: 'Cascadia Code','Consolas',monospace;
+}
+.tps-val { font-weight: 700; }
+.tps-green  { color: #3ecf8e; }
+.tps-yellow { color: #f5c842; }
+.tps-red    { color: #ff5c5c; }
+.tps-grey   { color: #6b7280; }
+.perf-sep   { color: var(--border); }
+
+.empty { padding: 20px; text-align: center; color: var(--muted); font-size: 12px; }
+
+/* ═══════════════════════════════════════════════════════ FILE BROWSER PANEL */
+.files-inner { display: flex; flex: 1; overflow: hidden; }
+.tree-col {
+  width: 200px; flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.content-col { flex: 1; overflow-y: auto; padding: 14px 16px; }
+
+.ti {
+  padding: 4px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text2);
+  border-radius: 4px;
+  margin: 1px 3px;
+  transition: background .1s;
+  user-select: none;
+  overflow: hidden;
+}
+.ti span.ti-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.ti:hover { background: var(--bg3); color: var(--text); }
+.ti.sel   { background: rgba(108,142,255,.14); color: var(--accent); }
+.ti.is-dir { font-weight: 600; color: var(--text); }
+.ti-icon  { font-size: 10px; opacity: .7; }
+.tree-children { padding-left: 10px; }
+
+/* Markdown */
+.md { line-height: 1.65; color: var(--text); max-width: 720px; }
+.md h1 { font-size: 20px; border-bottom: 1px solid var(--border); padding-bottom: 5px; margin: 14px 0 8px; }
+.md h2 { font-size: 15px; margin: 12px 0 6px; }
+.md h3 { font-size: 13px; margin: 10px 0 5px; }
+.md p  { margin: 6px 0; }
+.md ul,.md ol { margin: 5px 0 5px 18px; }
+.md li { margin: 2px 0; }
+.md code { background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 11px; font-family: 'Cascadia Code','Consolas',monospace; }
+.md pre { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin: 8px 0; overflow-x: auto; }
+.md pre code { background: none; border: none; padding: 0; }
+.md blockquote { border-left: 3px solid var(--accent); margin: 6px 0; padding: 3px 10px; color: var(--text2); }
+.md a { color: var(--accent); }
+.md strong { color: var(--text); }
+.md table { border-collapse: collapse; margin: 8px 0; }
+.md th,.md td { border: 1px solid var(--border); padding: 4px 10px; }
+.md th { background: var(--bg3); }
+.md-hint { color: var(--muted); font-size: 11px; }
+
+/* ═══════════════════════════════════════════════════════ FACTORY */
+.factory-wrap { flex: 1; position: relative; overflow: hidden; background: #0a0c10; }
+canvas#factory { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.factory-legend {
+  position: absolute; bottom: 10px; right: 10px;
+  background: rgba(13,15,20,.82);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 7px 11px;
+  font-size: 10px; color: var(--text2);
+  display: flex; flex-direction: column; gap: 4px;
+  pointer-events: none;
+}
+.leg-row { display: flex; align-items: center; gap: 6px; }
+.leg-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+/* Tooltip */
+#tt {
+  position: fixed;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0;
+  transition: opacity .12s;
+  max-width: 260px;
+  line-height: 1.6;
+}
+#tt.show { opacity: 1; }
+#tt-name { font-weight: 700; color: var(--text); display: block; margin-bottom: 4px; }
+#tt-info { color: var(--text2); white-space: pre; font-family: 'Cascadia Code','Consolas',monospace; font-size: 10px; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ══ HEADER ═══════════════════════════════════════════════════════════ -->
+  <header>
+    <div class="logo">🐾</div>
+    <h1>Spotty <em>Dashboard</em></h1>
+    <div class="hdr-right">
+      <span><span class="status-dot spin" id="gw-dot"></span><span id="gw-lbl">Connecting…</span></span>
+      <span style="color:var(--border)">|</span>
+      <span>Refresh: 10s</span>
+    </div>
+  </header>
+
+  <!-- ══ PANELS ════════════════════════════════════════════════════════════ -->
+  <div class="panels">
+
+    <!-- ── Left panel: tabbed AGENTS / FILES ── -->
+    <div class="panel-left">
+
+      <!-- Tab bar -->
+      <div class="tab-bar">
+        <button class="tab-btn active" id="tab-agents-btn" onclick="switchTab('agents')">
+          🤖 Agents <span class="badge" id="ag-badge">–</span>
+        </button>
+        <button class="tab-btn" id="tab-files-btn" onclick="switchTab('files')">
+          📁 Files
+        </button>
+      </div>
+
+      <!-- AGENTS pane -->
+      <div class="tab-pane active" id="tab-agents">
+        <div class="agents-scroll" id="agents-list">
+          <div class="empty">Connecting…</div>
+        </div>
+      </div>
+
+      <!-- FILES pane -->
+      <div class="tab-pane" id="tab-files">
+        <div class="files-inner">
+          <div class="tree-col" id="tree-col">
+            <div class="empty" style="padding:10px;font-size:10px;">Loading…</div>
+          </div>
+          <div class="content-col" id="content-col">
+            <div class="md-hint">Click a file to read it.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Factory ── -->
+    <div class="p-factory">
+      <div class="ph">🏭 ShotSpot Factory</div>
+      <div class="factory-wrap">
+        <canvas id="factory"></canvas>
+        <div class="factory-legend">
+          <div class="leg-row"><div class="leg-dot" style="background:var(--success)"></div>Running</div>
+          <div class="leg-row"><div class="leg-dot" style="background:var(--muted)"></div>Idle / Done</div>
+          <div class="leg-row"><div class="leg-dot" style="background:var(--danger)"></div>Error</div>
+          <div class="leg-row" style="margin-top:4px;border-top:1px solid var(--border);padding-top:4px">
+            <div class="leg-dot" style="background:#3ecf8e"></div>&gt;30 t/s
+          </div>
+          <div class="leg-row"><div class="leg-dot" style="background:#f5c842"></div>10–30 t/s</div>
+          <div class="leg-row"><div class="leg-dot" style="background:#ff5c5c"></div>&lt;10 t/s</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panels -->
+</div><!-- /app -->
+
+<div id="tt"><span id="tt-name"></span><span id="tt-info"></span></div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════════════════════════
+const FILE_API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://127.0.0.1:4445'
+  : `https://${location.hostname}:4445`;
+const POLL_MS  = 10_000;
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+
+function esc(s) {
+  return String(s||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtMs(ms) {
+  if (!ms || ms < 0) return '–';
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60), r = s % 60;
+  return `${m}m ${r < 10 ? '0' : ''}${r}s`;
+}
+
+function shortenModel(m) {
+  if (!m) return '–';
+  if (m.includes('/')) m = m.split('/').pop();
+  return m;
+}
+
+function inferRole(s) {
+  const lbl = (s.label || s.displayName || s.key || '').toLowerCase();
+  if (lbl.includes('architect'))                          return 'Architect';
+  if (lbl.includes('developer') || lbl.includes(' dev')) return 'Developer';
+  if (lbl.includes(' qa') || lbl.includes('test'))       return 'QA';
+  if (lbl.includes('deploy'))                             return 'Deploy';
+  if (lbl.includes(' ux') || lbl.includes('design'))     return 'UX';
+  if (lbl.includes('coordinator') || (s.key||'').endsWith(':main')) return 'Coordinator';
+  return null;
+}
+
+function isCoordinator(s) {
+  return inferRole(s) === 'Coordinator'
+    || (s.key||'').endsWith(':main')
+    || !s.spawnedBy;
+}
+
+// ─── TPS / Performance helpers ────────────────────────────────────────────
+function calcTps(session) {
+  const outTok = session.outputTokens;
+  const rtMs   = session.status === 'running' && session.startedAt
+    ? Date.now() - session.startedAt
+    : session.runtimeMs;
+  if (!outTok || !rtMs || rtMs < 500) return null;
+  return outTok / (rtMs / 1000);
+}
+
+function fmtTps(tps) {
+  if (tps === null) return null;
+  return `${tps.toFixed(1)} t/s`;
+}
+
+function tpsClass(tps) {
+  if (tps === null) return 'tps-grey';
+  if (tps > 20)  return 'tps-green';
+  if (tps >= 5)  return 'tps-yellow';
+  return 'tps-red';
+}
+
+function tpsColor(tps) {
+  if (tps === null) return '#6b7280';
+  if (tps > 20)  return '#3ecf8e';
+  if (tps >= 5)  return '#f5c842';
+  return '#ff5c5c';
+}
+
+function fmtTokens(session) {
+  const total = session.totalTokens;
+  if (!total) return null;
+  return total >= 1000 ? `${(total/1000).toFixed(0)}k` : String(total);
+}
+
+function buildPerfRow(session) {
+  const tps    = calcTps(session);
+  const fmtTok = fmtTokens(session);
+  const rtMs   = session.status === 'running' && session.startedAt
+    ? Date.now() - session.startedAt
+    : session.runtimeMs;
+  const rt = fmtMs(rtMs);
+  const parts = [];
+  if (tps !== null) {
+    const cls = tpsClass(tps);
+    parts.push(`<span class="tps-val ${cls}">⚡ ${esc(fmtTps(tps))}</span>`);
+  } else {
+    parts.push(`<span class="tps-val tps-grey">⚡ –</span>`);
+  }
+  if (fmtTok) {
+    parts.push(`<span class="perf-sep">•</span><span>📦 ${esc(fmtTok)} tok</span>`);
+  }
+  parts.push(`<span class="perf-sep">•</span><span>⏱ ${rt}</span>`);
+  return `<div class="acard-perf">${parts.join('')}</div>`;
+}
+
+function buildTooltipInfo(worker) {
+  const s = worker.session;
+  if (!s) return `Status: ${worker.status}\nNo active session`;
+  const tps    = calcTps(s);
+  const rtMs   = s.status === 'running' && s.startedAt
+    ? Date.now() - s.startedAt
+    : s.runtimeMs;
+  const inTok  = s.inputTokens  ? `${(s.inputTokens/1000).toFixed(0)}k`  : '?';
+  const outTok = s.outputTokens ? `${(s.outputTokens/1000).toFixed(0)}k` : '?';
+  const totTok = s.totalTokens  ? `${(s.totalTokens/1000).toFixed(0)}k`  : '?';
+  const lines = [
+    `Model:   ${shortenModel(s.model)}`,
+    `Status:  ${s.status}`,
+    `Runtime: ${fmtMs(rtMs)}`,
+    `Tokens:  ${totTok} (in: ${inTok} / out: ${outTok})`,
+    `TPS:     ${tps !== null ? fmtTps(tps) : '–'}`,
+  ];
+  return lines.join('\n');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TAB SWITCHER
+// ═══════════════════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  // Buttons
+  $('tab-agents-btn').classList.toggle('active', tab === 'agents');
+  $('tab-files-btn').classList.toggle('active', tab === 'files');
+  // Panes
+  $('tab-agents').classList.toggle('active', tab === 'agents');
+  $('tab-files').classList.toggle('active', tab === 'files');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  SUBAGENTS PANEL
+// ═══════════════════════════════════════════════════════════════════════════
+const agList  = $('agents-list');
+const agBadge = $('ag-badge');
+const gwDot   = $('gw-dot');
+const gwLbl   = $('gw-lbl');
+
+function setGwStatus(state, label) {
+  gwDot.className = 'status-dot ' + state;
+  gwLbl.textContent = label;
+}
+
+async function fetchSessions() {
+  try {
+    const r = await fetch(`${FILE_API}/sessions`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    if (data.error && !data.sessions?.length) {
+      setGwStatus('err', 'Gateway offline');
+    } else {
+      setGwStatus('ok', 'Live');
+    }
+    return data.sessions || [];
+  } catch (e) {
+    setGwStatus('err', 'File server offline');
+    return null;
+  }
+}
+
+function renderAgents(sessions) {
+  if (!sessions) {
+    agList.innerHTML = '<div class="empty">File server offline — start file-server.js</div>';
+    agBadge.textContent = '–';
+    return;
+  }
+  if (!sessions.length) {
+    agList.innerHTML = '<div class="empty">No sessions yet.</div>';
+    agBadge.textContent = '0';
+    return;
+  }
+
+  const main = sessions.filter(s => !s.spawnedBy && !(s.key||'').includes('subagent'));
+  const subs = sessions.filter(s =>  s.spawnedBy || (s.key||'').includes('subagent'));
+  subs.sort((a,b) => (b.startedAt||0) - (a.startedAt||0));
+  const visible = [...main, ...subs].slice(0, 25);
+
+  const running = sessions.filter(s => s.status === 'running').length;
+  agBadge.textContent = `${running} live / ${sessions.length}`;
+
+  agList.innerHTML = visible.map(s => {
+    const status = s.status || 'done';
+    const cls    = `acard s-${status}`;
+    const pill   = `pill pill-${status}`;
+    const role   = inferRole(s);
+    const label  = s.label || s.displayName || s.key || '?';
+    const isMain = !s.spawnedBy && !(s.key||'').includes('subagent');
+    const model  = shortenModel(s.model);
+
+    return `<div class="${cls}" title="${esc(s.key)}">
+      <div class="acard-top">
+        <div class="acard-label">${isMain?'🐾 ':''}${role?`<span style="opacity:.6;font-size:10px">[${esc(role)}]</span> `:''}${esc(label)}</div>
+        <div class="${pill}">${esc(status)}</div>
+      </div>
+      ${buildPerfRow(s)}
+      <div class="acard-meta">
+        <span>🤖 ${esc(model)}</span>
+        ${s.estimatedCostUsd ? `<span>💲${s.estimatedCostUsd.toFixed(3)}</span>` : ''}
+      </div>
+      ${s.key ? `<div class="acard-key">${esc(s.key)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  FILE BROWSER
+// ═══════════════════════════════════════════════════════════════════════════
+const treeCol    = $('tree-col');
+const contentCol = $('content-col');
+
+async function loadTree() {
+  try {
+    const r = await fetch(`${FILE_API}/tree`);
+    const data = await r.json();
+    treeCol.innerHTML = '';
+    renderTreeNodes(data.tree || [], treeCol);
+  } catch {
+    treeCol.innerHTML = '<div class="empty" style="padding:8px;color:var(--danger);font-size:10px">File server offline</div>';
+  }
+}
+
+function renderTreeNodes(nodes, container) {
+  for (const node of nodes) {
+    if (node.type === 'dir') {
+      const el = document.createElement('div');
+      el.className = 'ti is-dir';
+      el.innerHTML = `<span class="ti-icon">📂</span><span class="ti-name" title="${esc(node.name)}">${esc(node.name)}</span>`;
+      container.appendChild(el);
+
+      const children = document.createElement('div');
+      children.className = 'tree-children';
+      renderTreeNodes(node.children || [], children);
+      container.appendChild(children);
+
+      let open = true;
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        open = !open;
+        children.style.display = open ? '' : 'none';
+        el.querySelector('.ti-icon').textContent = open ? '📂' : '📁';
+      });
+    } else {
+      const icon = node.name.endsWith('.md') ? '📄' : '📋';
+      const el = document.createElement('div');
+      el.className = 'ti';
+      el.innerHTML = `<span class="ti-icon">${icon}</span><span class="ti-name" title="${esc(node.name)}">${esc(node.name)}</span>`;
+      el.addEventListener('click', () => selectFile(node.path, el));
+      container.appendChild(el);
+    }
+  }
+}
+
+let selectedEl = null;
+
+function selectFile(relPath, el) {
+  if (selectedEl) selectedEl.classList.remove('sel');
+  selectedEl = el;
+  el.classList.add('sel');
+  loadFileContent(relPath);
+}
+
+async function loadFileContent(relPath) {
+  contentCol.innerHTML = '<div class="md-hint">Loading…</div>';
+  try {
+    const r = await fetch(`${FILE_API}/file?path=${encodeURIComponent(relPath)}`);
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    const html = (typeof marked !== 'undefined')
+      ? marked.parse(data.content || '*(empty)*')
+      : `<pre>${esc(data.content)}</pre>`;
+    contentCol.innerHTML = `<div class="md">${html}</div>`;
+  } catch (e) {
+    contentCol.innerHTML = `<div class="md-hint" style="color:var(--danger)">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  FACTORY — MULTI-LANE
+// ═══════════════════════════════════════════════════════════════════════════
+const canvas = $('factory');
+const ctx    = canvas.getContext('2d');
+
+// Role definitions — colors + emojis (positions computed per-lane dynamically)
+const ROLE_DEFS = {
+  Coordinator: { emoji:'🐾', color:'#6c8eff' },
+  Architect:   { emoji:'🏛️', color:'#f5c842' },
+  Developer:   { emoji:'💻', color:'#3ecf8e' },
+  QA:          { emoji:'🔍', color:'#ff8c42' },
+  Deploy:      { emoji:'🚀', color:'#c084fc' },
+  UX:          { emoji:'🎨', color:'#fb7185' },
+};
+
+// Belt role order (left→right)
+const BELT_ROLES = ['Architect', 'Developer', 'QA', 'Deploy'];
+// Belt X fractions per role index
+const BELT_X = [0.22, 0.42, 0.62, 0.82];
+// Coordinator X fraction
+const COORD_X = 0.08;
+// UX Y fraction relative to lane top (above Developer)
+const UX_Y_FRAC = 0.18;
+
+// Factory state — array of lanes, each: { coordinator, subagents, beltPkgs }
+let factoryLanes = [];
+
+// ─── Build lanes from sessions ────────────────────────────────────────────
+function buildLanes(sessions) {
+  if (!sessions || !sessions.length) return [];
+
+  // Find coordinators: sessions where isCoordinator() is true
+  const coords = sessions.filter(s => isCoordinator(s));
+  if (!coords.length) {
+    // Fallback: one default lane with no coordinator
+    return [{ coordinator: null, subagents: sessions, beltPkgs: [] }];
+  }
+
+  return coords.map(coord => {
+    const coordKey = coord.key || coord.sessionId;
+    // Subagents that spawnedBy this coordinator
+    const subs = sessions.filter(s =>
+      s !== coord &&
+      (s.spawnedBy === coordKey ||
+       s.spawnedBy === coord.sessionId ||
+       s.spawnedBy === coord.key)
+    );
+    return { coordinator: coord, subagents: subs, beltPkgs: [] };
+  });
+}
+
+// ─── Update factory state from sessions ───────────────────────────────────
+function updateFactoryState(sessions) {
+  if (!sessions) return;
+
+  const newLanes = buildLanes(sessions);
+
+  // Preserve beltPkgs across updates by matching lanes
+  newLanes.forEach((lane, li) => {
+    const prev = factoryLanes[li];
+    if (prev) {
+      lane.beltPkgs = prev.beltPkgs || [];
+    } else {
+      lane.beltPkgs = [];
+    }
+
+    // Manage belt packages for this lane
+    const roleMap = buildRoleMap(lane.subagents, lane.coordinator);
+    BELT_ROLES.forEach((role, idx) => {
+      if (role === 'Architect' || role === 'Developer' || role === 'QA') {
+        const isRunning = roleMap[role]?.status === 'running';
+        const hasPkg = lane.beltPkgs.find(p => p.fromIdx === idx);
+        if (isRunning && !hasPkg) {
+          lane.beltPkgs.push({ fromIdx: idx, progress: 0 });
+        } else if (!isRunning && hasPkg) {
+          lane.beltPkgs = lane.beltPkgs.filter(p => p.fromIdx !== idx);
+        }
+      }
+    });
+
+    lane.roleMap = roleMap;
+  });
+
+  factoryLanes = newLanes;
+}
+
+// Build role→{status,session} map for a lane
+function buildRoleMap(subagents, coordinator) {
+  const roleMap = {};
+  // Include coordinator if present
+  const all = coordinator ? [coordinator, ...subagents] : subagents;
+  all.forEach(s => {
+    const role = inferRole(s);
+    if (!role) return;
+    const cur = roleMap[role];
+    if (!cur || s.status === 'running') {
+      roleMap[role] = { status: s.status || 'idle', session: s };
+    }
+  });
+  return roleMap;
+}
+
+// For tooltip hit testing — stores all drawn worker positions this frame
+let drawnWorkers = [];
+
+// ─── Geometry helpers ─────────────────────────────────────────────────────
+function beltLen(pts) {
+  let l = 0;
+  for (let i=1;i<pts.length;i++) l += Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y);
+  return l;
+}
+
+function ptAt(pts, d) {
+  let rem = d;
+  for (let i=1;i<pts.length;i++) {
+    const seg = Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y);
+    if (rem <= seg) {
+      const t = rem/seg;
+      return { x: pts[i-1].x+(pts[i].x-pts[i-1].x)*t, y: pts[i-1].y+(pts[i].y-pts[i-1].y)*t };
+    }
+    rem -= seg;
+  }
+  return pts[pts.length-1];
+}
+
+function rrect(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x+r,y); c.lineTo(x+w-r,y);
+  c.quadraticCurveTo(x+w,y,x+w,y+r);
+  c.lineTo(x+w,y+h-r);
+  c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  c.lineTo(x+r,y+h);
+  c.quadraticCurveTo(x,y+h,x,y+h-r);
+  c.lineTo(x,y+r);
+  c.quadraticCurveTo(x,y,x+r,y);
+  c.closePath();
+}
+
+// ─── Canvas resize ────────────────────────────────────────────────────────
+function resizeCanvas() {
+  const wrap = canvas.parentElement;
+  canvas.width  = wrap.clientWidth  || 600;
+  canvas.height = wrap.clientHeight || 400;
+}
+new ResizeObserver(resizeCanvas).observe(canvas.parentElement);
+resizeCanvas();
+
+// ─── Draw a single worker circle ──────────────────────────────────────────
+function drawWorker(c, wx, wy, r, def, status, session, t, laneLabel) {
+  const isRunning = status === 'running';
+  const isError   = status === 'error' || status === 'failed';
+  const tps       = isRunning && session ? calcTps(session) : null;
+  const tpsClr    = tpsColor(tps);
+
+  // Glow halo
+  if (isRunning) {
+    const glowColor = tps !== null ? tpsClr : def.color;
+    const g = c.createRadialGradient(wx,wy,0, wx,wy, r+24);
+    g.addColorStop(0, glowColor+'3a'); g.addColorStop(1,'transparent');
+    c.beginPath(); c.arc(wx,wy,r+24,0,Math.PI*2);
+    c.fillStyle = g; c.fill();
+    // Pulse ring
+    const pulse = Math.sin(t*3.2)*0.5+0.5;
+    c.beginPath(); c.arc(wx,wy, r+8+pulse*7, 0, Math.PI*2);
+    c.strokeStyle = glowColor+'70'; c.lineWidth = 2; c.stroke();
+  }
+
+  // Platform disc
+  c.beginPath(); c.arc(wx,wy, r, 0, Math.PI*2);
+  c.fillStyle = '#141720'; c.fill();
+  let borderColor = '#2a2f42';
+  if (isRunning) borderColor = tps !== null ? tpsClr : def.color;
+  if (isError)   borderColor = '#ff5c5c';
+  c.strokeStyle = borderColor;
+  c.lineWidth   = isRunning ? 2.5 : 1.5;
+  c.stroke();
+
+  // Bob
+  let bob = 0;
+  if (status === 'idle') bob = Math.sin(t*1.1 + wx*0.1)*3;
+  else if (isRunning)    bob = Math.sin(t*5)*1.2;
+
+  // Emoji
+  c.font = `${r < 22 ? 14 : r < 28 ? 18 : 22}px serif`;
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(def.emoji, wx, wy+bob);
+
+  // Name label
+  c.font = `bold ${Math.max(8, Math.min(10, r*0.38))}px -apple-system,sans-serif`;
+  c.textAlign = 'center'; c.textBaseline = 'top';
+  c.fillStyle = isRunning ? borderColor : '#6b7280';
+  c.fillText(laneLabel || def.name || '', wx, wy+r+3);
+
+  // TPS label
+  if (isRunning && session) {
+    const tpsStr = tps !== null ? fmtTps(tps) : '–';
+    c.font = `${Math.max(7, Math.min(9, r*0.3))}px 'Cascadia Code',Consolas,monospace`;
+    c.fillStyle = tpsClr;
+    c.fillText(`⚡ ${tpsStr}`, wx, wy+r+14);
+  }
+
+  // Speech bubble
+  if (isRunning && session) {
+    const lbl = (session.label||session.displayName||'').slice(0,24);
+    if (lbl) drawBubble(c, wx, wy-r-6, lbl, borderColor);
+  }
+
+  return { borderColor, tps, tpsClr };
+}
+
+// ─── Draw one factory lane ─────────────────────────────────────────────────
+function drawLane(W, H, laneTop, laneH, lane, laneIdx, numLanes, t) {
+  const laneCY = laneTop + laneH * 0.5;
+  const roleMap = lane.roleMap || {};
+  const workerR = Math.min(32, laneH * 0.22);
+
+  // Lane divider (above this lane, not for lane 0)
+  if (laneIdx > 0) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, laneTop);
+    ctx.lineTo(W, laneTop);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Lane label
+  const coordName = lane.coordinator
+    ? (lane.coordinator.label || lane.coordinator.displayName || lane.coordinator.key || 'main')
+    : 'default';
+  const truncName = coordName.length > 22 ? coordName.slice(0, 20) + '…' : coordName;
+  ctx.save();
+  ctx.font = `bold 9px -apple-system,sans-serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText(`Lane ${laneIdx+1} · ${truncName}`, W * 0.01, laneTop + 5);
+  ctx.restore();
+
+  // ── Belt waypoints for this lane ──
+  const bpts = BELT_X.map(fx => ({ x: fx * W, y: laneCY }));
+  const blen = beltLen(bpts);
+
+  // Belt track
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = Math.min(24, workerR * 0.7);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(bpts[0].x, bpts[0].y);
+  bpts.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.stroke();
+  ctx.strokeStyle = '#1a1f30'; ctx.lineWidth = Math.min(18, workerR * 0.52);
+  ctx.beginPath(); ctx.moveTo(bpts[0].x, bpts[0].y);
+  bpts.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.stroke();
+  ctx.restore();
+
+  // Animated stripes
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,.055)'; ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  const stripeSpacing = 22;
+  const off = (t * 28) % stripeSpacing;
+  for (let d = -stripeSpacing+off; d <= blen+stripeSpacing; d += stripeSpacing) {
+    const p1 = ptAt(bpts, d), p2 = ptAt(bpts, d+8);
+    ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
+  }
+  ctx.restore();
+
+  // Belt glow edge
+  ctx.save();
+  ctx.strokeStyle = 'rgba(108,142,255,.18)'; ctx.lineWidth = 1;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(bpts[0].x, bpts[0].y);
+  bpts.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.stroke();
+  ctx.restore();
+
+  // Belt packages
+  lane.beltPkgs.forEach(pkg => {
+    pkg.progress = (pkg.progress + 0.0015) % 1;
+    const segStart = bpts[pkg.fromIdx];
+    const segEnd   = bpts[Math.min(pkg.fromIdx+1, bpts.length-1)];
+    const pos = {
+      x: segStart.x + (segEnd.x - segStart.x) * pkg.progress,
+      y: segStart.y + (segEnd.y - segStart.y) * pkg.progress,
+    };
+    const pkgSize = Math.min(16, workerR * 0.5);
+    ctx.save();
+    rrect(ctx, pos.x-pkgSize/2, pos.y-pkgSize/2, pkgSize, pkgSize, 3);
+    ctx.fillStyle = '#1c2535'; ctx.fill();
+    ctx.strokeStyle = '#6c8eff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.font = `${Math.min(10, pkgSize*0.7)}px serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('📦', pos.x, pos.y);
+    ctx.restore();
+  });
+
+  // ── Coordinator worker (left side) ──
+  {
+    const cx = W * COORD_X;
+    const cy = laneCY;
+    const coordDef = ROLE_DEFS['Coordinator'];
+    const coordStatus = lane.coordinator ? (lane.coordinator.status || 'idle') : 'idle';
+    const coordSession = lane.coordinator || null;
+    const coordLabel = (coordSession
+      ? (coordSession.label || coordSession.displayName || 'Coordinator')
+      : 'Coordinator').slice(0, 12);
+
+    drawWorker(ctx, cx, cy, workerR, coordDef, coordStatus, coordSession, t, coordLabel);
+
+    // Coordinator badge ring
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, workerR+2, 0, Math.PI*2);
+    ctx.strokeStyle = coordDef.color+'80'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.font = `bold ${Math.max(7,Math.min(8,workerR*0.25))}px -apple-system,sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = coordDef.color;
+    ctx.fillText('COORD', cx, cy - workerR - 4);
+    ctx.restore();
+
+    drawnWorkers.push({ name: 'Coordinator', x: cx, y: cy, r: workerR,
+      status: coordStatus, session: coordSession });
+  }
+
+  // ── UX worker (floating above Developer position) ──
+  {
+    const uxX = BELT_X[1] * W; // Developer position X
+    const uxY = laneTop + laneH * UX_Y_FRAC;
+    const uxDef = ROLE_DEFS['UX'];
+    const uxInfo = roleMap['UX'];
+    const uxStatus = uxInfo?.status || 'idle';
+    const uxSession = uxInfo?.session || null;
+
+    // Only show if active or if there's enough lane height
+    if (laneH > 80) {
+      drawWorker(ctx, uxX, uxY, workerR * 0.8, uxDef, uxStatus, uxSession, t, 'UX');
+
+      // Dashed line connecting UX to Developer
+      const devY = laneCY;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(251,113,133,0.3)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.moveTo(uxX, uxY + workerR * 0.8);
+      ctx.lineTo(uxX, devY - workerR);
+      ctx.stroke();
+      ctx.restore();
+
+      drawnWorkers.push({ name: 'UX', x: uxX, y: uxY, r: workerR * 0.8,
+        status: uxStatus, session: uxSession });
+    }
+  }
+
+  // ── Belt workers (Architect, Developer, QA, Deploy) ──
+  BELT_ROLES.forEach((roleName, idx) => {
+    const wx = BELT_X[idx] * W;
+    const wy = laneCY;
+    const def = ROLE_DEFS[roleName];
+    const info = roleMap[roleName];
+    const status  = info?.status  || 'idle';
+    const session = info?.session || null;
+
+    drawWorker(ctx, wx, wy, workerR, def, status, session, t, roleName);
+    drawnWorkers.push({ name: roleName, x: wx, y: wy, r: workerR,
+      status, session });
+  });
+}
+
+// ─── Draw loop ────────────────────────────────────────────────────────────
+function draw(ts) {
+  const W = canvas.width, H = canvas.height;
+  const t = ts / 1000;
+
+  // Reset drawn workers for tooltip hit testing
+  drawnWorkers = [];
+
+  // Background
+  ctx.fillStyle = '#0a0c10';
+  ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.027)';
+  ctx.lineWidth = 1;
+  for (let x=0;x<W;x+=40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y=0;y<H;y+=40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  const numLanes = factoryLanes.length || 1;
+  const laneH    = H / numLanes;
+
+  if (!factoryLanes.length) {
+    // Idle state — no sessions yet
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.045)';
+    ctx.font = `bold ${Math.min(44, W*0.065)}px -apple-system,sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('SHOTSPOT FACTORY', W/2, H/2 - 24);
+    ctx.font = `14px -apple-system,sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillText('Waiting for sessions…', W/2, H/2 + 16);
+    ctx.restore();
+  } else {
+    // Draw each lane
+    factoryLanes.forEach((lane, li) => {
+      const laneTop = li * laneH;
+      drawLane(W, H, laneTop, laneH, lane, li, numLanes, t);
+    });
+  }
+
+  requestAnimationFrame(draw);
+}
+
+function drawBubble(c, x, y, text, color) {
+  c.save();
+  c.font = '10px -apple-system,sans-serif';
+  const tw = c.measureText(text).width;
+  const bw = tw+12, bh=18;
+  const bx = x-bw/2, by = y-bh-8;
+  rrect(c, bx, by, bw, bh, 4);
+  c.fillStyle = '#1c2030'; c.fill();
+  c.strokeStyle = color; c.lineWidth = 1; c.stroke();
+  // Tail
+  c.beginPath(); c.moveTo(x-4,by+bh); c.lineTo(x,by+bh+6); c.lineTo(x+4,by+bh);
+  c.fillStyle = '#1c2030'; c.fill();
+  c.strokeStyle = color; c.stroke();
+  // Text
+  c.fillStyle = '#e2e8f0';
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(text, x, by+bh/2);
+  c.restore();
+}
+
+// ─── Tooltip ──────────────────────────────────────────────────────────────
+const ttEl   = $('tt');
+const ttName = $('tt-name');
+const ttInfo = $('tt-info');
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX-rect.left, my = e.clientY-rect.top;
+  let found = null;
+  for (const w of drawnWorkers) {
+    if (Math.hypot(mx - w.x, my - w.y) < w.r + 8) { found = w; break; }
+  }
+  if (found) {
+    ttName.textContent = found.name;
+    ttInfo.textContent = buildTooltipInfo(found);
+    ttEl.style.left = (e.clientX+14)+'px';
+    ttEl.style.top  = (e.clientY-8)+'px';
+    ttEl.classList.add('show');
+  } else {
+    ttEl.classList.remove('show');
+  }
+});
+canvas.addEventListener('mouseleave', () => ttEl.classList.remove('show'));
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  MAIN POLL LOOP
+// ═══════════════════════════════════════════════════════════════════════════
+async function poll() {
+  const sessions = await fetchSessions();
+  renderAgents(sessions);
+  updateFactoryState(sessions);
+}
+
+async function init() {
+  if (typeof marked !== 'undefined') {
+    marked.setOptions({ breaks:true, gfm:true });
+  }
+  loadTree();
+  await poll();
+  setInterval(poll, POLL_MS);
+  requestAnimationFrame(draw);
+}
+
+init();
+</script>
+</body>
+</html>

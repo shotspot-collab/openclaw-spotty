@@ -56,12 +56,12 @@ Never let Developer make design calls unilaterally. If Developer returns with a 
 
 | Role        | Primary model                   | Fallback(s)                                               |
 |-------------|---------------------------------|-----------------------------------------------------------|
-| Coordinator | openai/gpt-5.4-mini             | —                                                         |
+| Coordinator | openai-codex/gpt-5.4-mini       | anthropic/claude-sonnet-4-6                               |
 | UX          | google/gemini-3.1-pro-preview   | —                                                         |
-| Architect   | anthropic/claude-sonnet-4-6     | openai/gpt-5.4-mini                                       |
-| Developer   | qwen3-coder (if available)      | mistral/devstral-medium-latest → openai/gpt-5.4-mini               |
-| QA          | openai/gpt-5.4-nano             | anthropic/claude-haiku-4-5 (if available)                 |
-| Deploy      | openai/gpt-5.4-mini             | anthropic/claude-haiku-4-5 (if available)                 |
+| Architect   | anthropic/claude-sonnet-4-6     | openai-codex/gpt-5.4-mini                                 |
+| Developer   | codestral/codestral-2501        | — (never use anthropic/claude-sonnet-4-6)                 |
+| QA          | google/gemini-3.1-pro-preview   | anthropic/claude-sonnet-4-6                               |
+| Deploy      | google/gemini-3.1-pro-preview   | anthropic/claude-sonnet-4-6                               |
 
 **Fallback policy:** Try primary first. On failure or model unavailability, fall through the listed fallbacks in order. Log which fallback was used in the handoff note.
 
@@ -82,7 +82,7 @@ Never let Developer make design calls unilaterally. If Developer returns with a 
 
 Include:
 - task goal
-- repo path: `C:\Users\nbobb\shotspotwork\ShotSpotMainApp`
+- repo path: `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\`
 - relevant KB/task files
 - constraints and guardrails
 - expected deliverable
@@ -103,6 +103,40 @@ Read these when coordinating larger work:
 - `references/qa-policy.md` when deciding how much QA evidence a ShotSpot task requires
 - `references/end-of-day.md` when the user wants a wrap-up, pause, or end-of-day checklist
 - `references/handoff-template.md` for clean role-to-role handoffs
+
+## Subagent status tracking SOP
+
+After spawning any subagent:
+1. Call `sessions_yield` immediately after spawn to wait for the completion event push.
+2. When a completion event arrives, synthesize the result and report it to the user in Coordinator voice.
+3. If the user asks for a status update before completion arrives, call `subagents(action=list, recentMinutes=30)` to check current state and report back.
+4. If a subagent fails or returns errors (e.g. ENOENT, wrong path, model error), diagnose the root cause and re-spawn with corrected brief — do not silently drop the failure.
+5. Never poll `sessions_list` or `subagents` in a tight loop — check on-demand only.
+6. After all expected subagents complete, always post a consolidated status summary to the user before moving on.
+7. **Long-running task updates:** For every subagent spawn, add a `cron` job to check the status of the spawned subagent every 1 minute until it's finished. When it finishes, delete the cron job. Use `cron(action=add)` with `payload.kind=agentTurn` bound to the `current` session.
+8. **Stuck subagent detection:** During the 1-minute cron status checks, if a subagent's progress appears stuck or is not moving forward (e.g., repeatedly looping on the same error, failing to process a large file, or hanging on a command), intelligently inspect its `sessions_history` or background `process(action=log)`. If it is hopelessly stuck or caught in a bad loop, report the specific issue and block reason to the user rather than blindly waiting.
+
+## Post-QA commit SOP
+
+After QA passes for any task:
+1. Spawn a **Developer** subagent to commit and push the changes to the working GitHub branch.
+2. Developer brief must include:
+   - files changed (from prior Developer output)
+   - a concise commit message describing the change (e.g. `feat: remove old inline upload endpoint`)
+   - instruction to push to `wip/current-state-20260322` (do NOT push to `main` directly)
+   - repo path: `C:\Users\nbobb\shotspotwork\ShotSpotMainApp\`
+3. Report the commit hash and branch name to the user after push completes.
+4. Do NOT skip this step — every QA-passing task must end with a committed push unless the user explicitly says otherwise.
+
+## Gateway API access rules
+
+Subagents do NOT have `operator.read` scope on the OpenClaw gateway. They cannot call:
+- `sessions.list`
+- `sessions.patch`
+- `cron.add` (with systemEvent payload in isolated sessions)
+- Any other operator-scoped gateway WS/REST commands
+
+**Rule:** If a subagent task requires gateway data (e.g. active sessions, model list), Coordinator must gather that data first using its own tools and pass it explicitly in the subagent brief. Never ask a subagent to introspect the gateway directly.
 
 ## Guardrails
 

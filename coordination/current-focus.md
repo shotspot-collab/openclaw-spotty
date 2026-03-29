@@ -2,10 +2,9 @@
 
 ## Immediate coordination focus
 
-1. Align workspace and repo docs to the accepted hybrid payment architecture
+1. Fix test isolation issues in repository integration tests (11 failing tests due to foreign key constraint violations in parallel test runs)
 2. Continue booking/payment finalization and critical-path hardening
-3. Keep signed upload/download lifecycle active as a production-shape improvement lane, with storage contract/service wiring as the next blocker to clear
-4. Use UX when flow/copy/MVP tradeoff decisions arise
+3. Use UX when flow/copy/MVP tradeoff decisions arise
 
 ## If a fresh Coordinator starts here
 

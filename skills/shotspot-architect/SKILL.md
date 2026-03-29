@@ -53,3 +53,12 @@ Provide:
 - Surface weak assumptions explicitly.
 - Prefer minimal viable architecture shifts over sweeping rewrites unless justified.
 - Follow `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\role-update-sop.md` for what to write after meaningful architect work.
+
+## Gateway API rules
+
+Subagents do NOT have `operator.read` scope. Never attempt live calls to the OpenClaw gateway WS or REST API from within a subagent (e.g. `sessions.list`, `sessions.patch`, `cron.add`). These will always fail with `missing scope: operator.read`.
+
+When designing tooling or dashboards that integrate with the OpenClaw gateway:
+- Treat the gateway as a black box
+- Use only the API surface and data explicitly provided in the Coordinator brief
+- Design the integration as a server-side proxy (e.g. local Node.js server) that holds the auth token and calls the gateway on behalf of the browser — never expose the token to the browser directly

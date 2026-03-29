@@ -43,6 +43,25 @@ Record accepted cross-agent decisions here.
   - Architect should map the stack onto homepage, booking, gallery, checkout, and photographer-dashboard surfaces.
   - UX should keep flow docs aligned as concrete screen decisions are accepted.
 
+## 2026-03-29 - Unified light theme with no brand accent color
+- Owner: UX
+- Status: accepted
+- Context: Initial theme exploration considered a split customer (light) vs photographer (dark) theme. This was rejected because it would make the product feel like two different apps.
+- Decision: ShotSpot uses a single unified light theme across all surfaces. Primary color is near-black (#0A0A0A) on warm off-white (#FCFBF9). No brand accent color. Photos are the color. Differentiation between customer and photographer surfaces is achieved through layout density and spacing only — not color or component divergence.
+- Color palette locked:
+  - Background: #FCFBF9
+  - Card/Surface: #FFFFFF
+  - Primary Text: #1A1A1A
+  - Primary Button: #0A0A0A
+  - Borders: #EAEAEA
+  - Success: #1A7A4A
+  - Warning: #B45309
+  - Danger: #C0392B
+- Typography: Inter (or SF Pro) for all surfaces. Monospace numbers for IDs and prices.
+- Shape: 8px border radius throughout.
+- Impact: Architect must align tokens.ts to this palette. Developer must apply consistently across all prototype and production screens.
+- Follow-ups: Full page-by-page UX spec written to ux/architect-brief.md. Architect should review and produce component gap analysis and delivery plan.
+
 ## 2026-03-24 - Real AWS S3 for local dev and 30-day strict photo retention
 - Owner: Coordinator
 - Status: accepted

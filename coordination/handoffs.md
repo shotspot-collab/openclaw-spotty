@@ -89,6 +89,16 @@ Use this file for short durable role-to-role handoffs when a decision or status 
   - `coordination/task-board.md` - Marked Slice D complete
 - Risks/open questions: Old inline endpoint still exists for backward compatibility; needs frontend migration before removal. Integration tests require local database.
 
+## 2026-03-29 11:56 UX -> Coordinator / Architect
+- Task: Full UX design spec ready for Architect review and Developer implementation
+- Context: UX brief is fully written and locked at ux/architect-brief.md. Color palette, typography, spacing, and page-by-page UX spec for all 8 core screens are accepted. Single unified light theme confirmed. No brand accent color — photos are the color.
+- Ask:
+  - Coordinator: request Architect review of ux/architect-brief.md and produce a component gap analysis + implementation plan.
+  - Architect: answer the four open questions at the bottom of the brief. Map accepted palette onto tokens.ts. Identify component gaps. Produce Developer delivery plan.
+  - Developer: do not start implementation until Architect produces the gap analysis and delivery plan.
+- Files updated: ux/architect-brief.md, project/decisions.md
+- Risks/open questions: see ux/architect-brief.md open questions section.
+
 ## 2026-03-23 09:56 UX -> Coordinator / Architect
 - Task: Convert UX inspiration stack into an architect planning output
 - Context: UX accepted a default inspiration stack for ShotSpot: Airbnb (booking clarity), Stripe (payment trust), Apple (premium visual restraint), Linear (photographer ops), and Pixieset/Pic-Time/ShootProof-style gallery-commerce patterns. This is a planning baseline, not a request to clone another product.

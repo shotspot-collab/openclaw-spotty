@@ -34,13 +34,13 @@
   - Workstream 2 (Stripe Webhook Payment Finalization) — COMPLETE
   - Slot Hold Lifecycle fixes — COMPLETE
   - DB test isolation (15/15 tests passing) — COMPLETE
-  - Phone OTP backend stub — COMPLETE (devOtpCode returned in dev responses)
+  - Phone OTP backend stub — COMPLETE (commit `bb5e146`, devOtpCode returned in dev responses)
 
 - **Pending**:
   - Frontend OTP flow not yet wired (customer join still bypasses auth)
-  - Developer model `mistral/codestral-latest` not in OpenClaw allowlist (using gpt-5.4-mini as fallback)
-  - Anthropic API key in Spotty agent profiles returning 401 (deferred by user)
-
+  - Dev deploy gate hardening
+  - OTP rate limiting
+  - Payout ledger / admin payout ops
 - **Test suite**: All repository integration tests pass (15/15 when run concurrently)
 - **Branch**: `wip/current-state-20260322`
 

@@ -6,6 +6,9 @@
 
 ## In Progress / Recently Completed (2026-03-29)
 
+- [x] Phone OTP backend stub (LocalStubSmsService + devOtpCode in response) — COMPLETE (commit `bb5e146`)
+## In Progress / Recently Completed (2026-03-29)
+
 - [x] Workstream 3: Signed upload/download lifecycle — COMPLETE (commit `02fe1a5`)
 - [x] Workstream 2: Stripe webhook payment finalization — COMPLETE (commit `b991e73`)
 - [x] 25 comprehensive Stripe webhook tests — COMPLETE (commit `1afc0d4`)

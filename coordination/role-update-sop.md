@@ -76,6 +76,12 @@ After a meaningful UX turn, at least one of these should be true:
 - a new unresolved cross-role question appears
 - a previously tracked open question is resolved or reframed
 
+### Coordinator task-record lifecycle rule
+For every meaningful task lane, Coordinator must keep the local coordination record current:
+1. update the task record when the task starts or materially advances
+2. update the task record again when the task completes, is blocked, is handed off, or is deprioritized
+3. reflect the change in the smallest durable place that fits, usually `coordination/active-workstreams.md`, `coordination/task-board.md`, and `coordination/handoffs.md` when ownership changes
+
 ### Coordinator minimum output rule
 After a meaningful coordination turn, at least one of these should be true:
 - coordination docs updated

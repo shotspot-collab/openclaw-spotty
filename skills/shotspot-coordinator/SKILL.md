@@ -33,6 +33,14 @@ Then:
 1. summarize active project state
 2. identify the highest-priority unfinished item unless the user reprioritizes
 3. decide whether to spawn UX, Architect, Developer, QA, Deploy, or a subset
+4. keep the local coordination task record current as work progresses and when it completes
+
+## Local task record rule
+
+For every meaningful task lane:
+- update the local coordination/task record when the lane starts or materially advances
+- update it again when the lane completes, is blocked, is handed off, or is deprioritized
+- use the smallest durable place that fits: usually `coordination/active-workstreams.md`, `coordination/task-board.md`, and `coordination/handoffs.md` when ownership changes
 
 ## When to spawn specialists
 

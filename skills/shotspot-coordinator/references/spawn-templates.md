@@ -11,16 +11,17 @@ Always pass `cwd: C:\Users\nbobb\shotspotwork\ShotSpotMainApp\` when spawning su
 
 ## Model assignments
 
-Each role uses a specific model. Always pass `model:` when calling `sessions_spawn`:
+Each role uses a specific model. Always pass `model:` when calling `sessions_spawn`.
+Use `coordination/model-routing.md` as the source of truth; the quick reference below mirrors it.
 
-| Role        | Primary model                   | Fallback(s)                       | Rationale                                    |
-|-------------|---------------------------------|-----------------------------------|----------------------------------------------|
-| Coordinator | openai-codex/gpt-5.4-mini       | anthropic/claude-sonnet-4-6       | Fast, cost-effective orchestration           |
-| UX          | google/gemini-3.1-pro-preview   | —                                 | Strong product reasoning, 1M context         |
-| Architect   | anthropic/claude-sonnet-4-6     | openai-codex/gpt-5.4-mini         | Deep design reasoning needs sonnet           |
-| Developer   | codestral/codestral-2501        | — (never sonnet)                  | Strong code generation                       |
-| QA          | google/gemini-3.1-pro-preview   | anthropic/claude-sonnet-4-6       | Fast, broad validation; 1M context           |
-| Deploy      | google/gemini-3.1-pro-preview   | anthropic/claude-sonnet-4-6       | Checklist work; 1M context                   |
+| Role        | Primary model                   | Fallback 1                      | Fallback 2                    | Rationale                         |
+|-------------|---------------------------------|---------------------------------|-------------------------------|-----------------------------------|
+| Coordinator | openai-codex/gpt-5.4-mini       | mistral/mistral-large-latest    | anthropic/claude-sonnet-4-6    | Fast, cost-effective orchestration |
+| UX          | anthropic/claude-sonnet-4-6     | openai-codex/gpt-5.4-mini       | mistral/mistral-large-latest   | Strong product reasoning          |
+| Architect   | anthropic/claude-sonnet-4-6     | openai-codex/gpt-5.4-mini       | mistral/mistral-large-latest   | Deep design reasoning             |
+| Developer   | mistral/devstral-medium-latest  | openai-codex/gpt-5.4-mini       | anthropic/claude-sonnet-4-6    | Strong code generation            |
+| QA          | openai-codex/gpt-5.4-nano       | openai-codex/gpt-5.4-mini       | anthropic/claude-sonnet-4-6    | Cheapest high-volume validation   |
+| Deploy      | openai-codex/gpt-5.4-mini       | openai-codex/gpt-5.4-nano       | mistral/mistral-large-latest   | Cost-efficient readiness checks   |
 
 If the primary model is unavailable, try fallbacks in order. Note which fallback was used in the handoff.
 
@@ -57,7 +58,7 @@ You are the UX subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
-Model: `google/gemini-3.1-pro-preview`
+Model: `anthropic/claude-sonnet-4-6`
 
 Instructions:
 - Read the Spotty workspace first-read files first.
@@ -81,7 +82,7 @@ You are the Architect subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
-Model: `anthropic/claude-sonnet-4-6` (fallback: `openai-codex/gpt-5.4-mini`)
+Model: `anthropic/claude-sonnet-4-6` (fallbacks: `openai-codex/gpt-5.4-mini`, `mistral/mistral-large-latest`)
 
 Instructions:
 - Read the Spotty workspace first-read files first.
@@ -105,7 +106,7 @@ You are the Developer subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
-Model: `codestral/codestral-2501` (**never use `anthropic/claude-sonnet-4-6` for Developer**)
+Model: `mistral/devstral-medium-latest` (fallbacks: `openai-codex/gpt-5.4-mini`, `anthropic/claude-sonnet-4-6`)
 
 Instructions:
 - Read the required first-read files first.
@@ -129,7 +130,7 @@ You are the QA subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
-Model: `google/gemini-3.1-pro-preview` (fallback: `anthropic/claude-sonnet-4-6`)
+Model: `openai-codex/gpt-5.4-nano` (fallbacks: `openai-codex/gpt-5.4-mini`, `anthropic/claude-sonnet-4-6`)
 
 Instructions:
 - Respond in role-labeled format beginning with `Role: QA`.
@@ -152,7 +153,7 @@ You are the Deploy subagent for Spotty on ShotSpot.
 Task:
 - <insert task>
 
-Model: `google/gemini-3.1-pro-preview` (fallback: `anthropic/claude-sonnet-4-6`)
+Model: `openai-codex/gpt-5.4-mini` (fallbacks: `openai-codex/gpt-5.4-nano`, `mistral/mistral-large-latest`)
 
 Instructions:
 - Respond in role-labeled format beginning with `Role: Deploy`.

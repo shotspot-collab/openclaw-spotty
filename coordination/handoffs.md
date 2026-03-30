@@ -40,6 +40,13 @@ Use this file for short durable role-to-role handoffs when a decision or status 
 
 ---
 
+## 2026-03-29 17:29 Coordinator -> All roles
+- Task: Spotty model-routing cost optimization
+- Context: The Spotty workspace now owns the role-based model policy via `coordination/model-routing.md`, with cost-optimized chains for Coordinator, Architect, Developer, QA, UX, and Deploy. Gemini-based active chains were removed from the workspace-local spawn templates.
+- Ask: Restart any live Spotty subagents if they need the new routing policy; use the workspace model-routing doc for all future spawns.
+- Files updated: `coordination/model-routing.md`, `coordination/status.md`, `coordination/active-workstreams.md`, `AGENTS.md`, `skills/shotspot-coordinator/SKILL.md`, `skills/shotspot-coordinator/references/spawn-templates.md`
+- Risks/open questions: Any currently running subagent sessions may still be on the previous model until respawned.
+
 ## 2026-03-23 09:15 Coordinator -> All roles
 - Task: Shared-memory migration to Spotty workspace
 - Context: Spotty workspace is now the primary coordination and project-memory layer. UX is a first-class specialist role. `.codex` should be treated as secondary/legacy context rather than the first read.

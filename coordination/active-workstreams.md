@@ -82,6 +82,20 @@ Use it instead of repo-local `.codex` files as the first coordination read.
   - customer gallery preview behavior will need explicit signed/proxied delivery rules once storage-backed
   - manual `Mark Paid` path remains conceptually inconsistent with Stripe-verified flow
 
+## 4. Spotty model routing / cost optimization
+- Legacy task id: `spotty-model-routing-20260329`
+- Status: complete
+- Why it matters: keeps the workspace-local orchestration policy cost-efficient and consistent across Coordinator, Architect, Developer, QA, UX, and Deploy roles without relying on global config changes.
+- Policy snapshot:
+  - Spotty base: `anthropic/claude-sonnet-4-6` → `openai-codex/gpt-5.4-mini` → `mistral/mistral-large-latest`
+  - Coordinator: `openai-codex/gpt-5.4-mini` → `mistral/mistral-large-latest` → `anthropic/claude-sonnet-4-6`
+  - Architect: `anthropic/claude-sonnet-4-6` → `openai-codex/gpt-5.4-mini` → `mistral/mistral-large-latest`
+  - Developer: `mistral/devstral-medium-latest` → `openai-codex/gpt-5.4-mini` → `anthropic/claude-sonnet-4-6`
+  - QA: `openai-codex/gpt-5.4-nano` → `openai-codex/gpt-5.4-mini` → `anthropic/claude-sonnet-4-6`
+  - UX: `anthropic/claude-sonnet-4-6` → `openai-codex/gpt-5.4-mini` → `mistral/mistral-large-latest`
+  - Deploy: `openai-codex/gpt-5.4-mini` → `openai-codex/gpt-5.4-nano` → `mistral/mistral-large-latest`
+- Current note: live sessions already running may need a restart to pick up this policy change.
+
 ## Working rule
 
 When a workstream changes meaningfully, update this file and also update:

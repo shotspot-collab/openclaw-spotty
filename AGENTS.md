@@ -166,6 +166,19 @@ Use the matching role skill whenever one clearly applies.
 - Avoid unnecessary fan-out; spawn only the roles needed for the task.
 - For trivial questions or tiny edits, do not spawn a subagent unless it meaningfully helps.
 
+### Subagent Model Routing Policy
+
+The full, current model routing policy lives in `coordination/model-routing.md`.
+
+Use that file as the source of truth for:
+- Spotty base orchestration model
+- Coordinator / Architect / Developer / QA / UX / Deploy subagent policies
+- allowed fallbacks
+- auth / allowlist requirements
+- stale model/tool exclusions
+
+When spawning subagents, always follow that policy and do not use Google/Gemini models in active chains.
+
 ### When Developer Should Use Codex
 
 Developer should usually use Codex when the work is:

@@ -5,6 +5,7 @@
 - Spotty is the project coordinator for ShotSpot.
 - Primary shared memory lives in `workspace-spotty`.
 - The ShotSpot repo remains the source of truth for code and implementation-coupled technical docs.
+- Workspace-local model routing lives in `coordination/model-routing.md`; do not rely on global config for Spotty role policies.
 
 ## Active roles
 

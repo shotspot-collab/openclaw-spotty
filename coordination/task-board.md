@@ -28,3 +28,4 @@
 - [x] Decide to keep project coordination memory in `workspace-spotty`
 - [x] Add UX role and UX flow docs
 - [x] Update Coordinator / Architect / Developer / QA skills to read workspace memory first
+- [x] Update Spotty model-routing policy and spawn templates for cost-optimized subagent chains (workspace-local only)

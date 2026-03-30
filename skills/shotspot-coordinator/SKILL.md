@@ -54,16 +54,22 @@ Never let Developer make design calls unilaterally. If Developer returns with a 
 
 ## Model routing (always pass `model:` when calling sessions_spawn)
 
-| Role        | Primary model                   | Fallback(s)                                               |
-|-------------|---------------------------------|-----------------------------------------------------------|
-| Coordinator | openai-codex/gpt-5.4-mini       | anthropic/claude-sonnet-4-6                               |
-| UX          | google/gemini-3.1-pro-preview   | —                                                         |
-| Architect   | anthropic/claude-sonnet-4-6     | openai-codex/gpt-5.4-mini                                 |
-| Developer   | mistral/codestral-latest        | openai-codex/gpt-5.4-mini (do NOT use claude-sonnet or kimi-k2.5)       |
-| QA          | google/gemini-3.1-pro-preview   | anthropic/claude-sonnet-4-6                               |
-| Deploy      | google/gemini-3.1-pro-preview   | anthropic/claude-sonnet-4-6                               |
+Use `C:\Users\nbobb\.openclaw\workspace-spotty\coordination\model-routing.md` as the source of truth for every role.
 
-**Fallback policy:** Try primary first. On failure or model unavailability, fall through the listed fallbacks in order. Log which fallback was used in the handoff note.
+Quick summary:
+- Coordinator: `openai-codex/gpt-5.4-mini` → `mistral/mistral-large-latest` → `anthropic/claude-sonnet-4-6`
+- Architect: `anthropic/claude-sonnet-4-6` → `openai-codex/gpt-5.4-mini` → `mistral/mistral-large-latest`
+- Developer: `mistral/devstral-medium-latest` → `openai-codex/gpt-5.4-mini` → `anthropic/claude-sonnet-4-6`
+- QA: `openai-codex/gpt-5.4-nano` → `openai-codex/gpt-5.4-mini` → `anthropic/claude-sonnet-4-6`
+- UX: `anthropic/claude-sonnet-4-6` → `openai-codex/gpt-5.4-mini` → `mistral/mistral-large-latest`
+- Deploy: `openai-codex/gpt-5.4-mini` → `openai-codex/gpt-5.4-nano` → `mistral/mistral-large-latest`
+
+**Rules:**
+- Do NOT use Google/Gemini models in any active chain.
+- Do NOT include the primary model also as a fallback.
+- Do NOT add duplicate entries in the fallback list.
+- Fallback policy: try primary first; on failure/unavailability fall through fallbacks in order.
+- Log which model was used in the handoff note to the next subagent.
 
 ## Routing by task complexity
 

@@ -17,36 +17,31 @@
 
 ## Current priorities
 
-1. Wire frontend OTP flow (customer join screens → real API)
-2. Dev deploy gate hardening
-3. Fix Developer model routing (mistral/codestral-latest allowlist)
+1. Re-test photographer login + Stripe connect on stable API startup path
+2. Wire frontend OTP flow (customer join screens → real API)
+3. Dev deploy gate hardening
+4. Fix `mistral/codestral-latest` in OpenClaw allowlist
+5. OTP rate limiting
 
-## Current known status (as of 2026-03-29 18:10 PDT)
+## Current known status (as of 2026-03-31 08:29 PDT)
 
-- **Dev stack**: Running and healthy
-  - Web: port 3000
-  - API: port 4000
-  - Worker: running (retention + notification dispatcher)
-  - Tailscale: public URL serving correctly
-
-- **Recently completed workstreams**:
+- **Dev stack:** web is up; API startup stability fix implemented
+- **Public URL:** app available through Tailscale; auth/Stripe flow should now be re-tested against the stable API launch path
+- **Recently completed workstreams:**
+  - API stability — COMPLETE (graceful shutdown + launch docs)
   - Workstream 3 (Signed Upload/Download Lifecycle) — COMPLETE
   - Workstream 2 (Stripe Webhook Payment Finalization) — COMPLETE
   - Slot Hold Lifecycle fixes — COMPLETE
   - DB test isolation (15/15 tests passing) — COMPLETE
-  - Phone OTP backend stub — COMPLETE (commit `bb5e146`, devOtpCode returned in dev responses)
+  - Phone OTP backend stub — COMPLETE (`bb5e146`)
+  - Home page first-pass UX — COMPLETE (`0306fbc`)
 
-- **Pending**:
-  - Frontend OTP flow not yet wired (customer join still bypasses auth)
-  - Dev deploy gate hardening
-  - OTP rate limiting
-  - Payout ledger / admin payout ops
-- **Test suite**: All repository integration tests pass (15/15 when run concurrently)
-- **Branch**: `wip/current-state-20260322`
+- **Pending:**
+  - Photographer login/session + Stripe connect must be re-verified end-to-end on the stable API launch path
+  - Frontend OTP flow should be re-verified after API stabilization
+  - Dev deploy gate hardening remains outstanding
 
-## Current public app URL
-
-- `https://msi.taila8c3ab.ts.net/`
+- **Branch:** `wip/current-state-20260322`
 
 ## Notes
 

@@ -129,6 +129,8 @@ After spawning any subagent:
 6. After all expected subagents complete, always post a consolidated status summary to the user before moving on.
 7. **Long-running task updates:** For every subagent spawn, add a `cron` job to check the status of the spawned subagent every 1 minute until it's finished. When it finishes, delete the cron job. Use `cron(action=add)` with `payload.kind=agentTurn` bound to the `current` session.
 8. **Stuck subagent detection:** During the 1-minute cron status checks, if a subagent's progress appears stuck or is not moving forward (e.g., repeatedly looping on the same error, failing to process a large file, or hanging on a command), intelligently inspect its `sessions_history` or background `process(action=log)`. If it is hopelessly stuck or caught in a bad loop, report the specific issue and block reason to the user rather than blindly waiting.
+9. **Architect→Developer handoff rule:** When Architect returns a plan, Coordinator must immediately spawn Developer with that plan, update the relevant coordination file(s), and tell the user what is now in flight. Do not leave Architect results idle.
+10. **Workspace commit rule:** After any completed task that materially updates coordination files, task boards, or SOPs, commit and push the `C:\Users\nbobb\.openclaw\workspace-spotty\` workspace changes so the task record stays current and durable.
 
 ## Post-QA commit SOP
 

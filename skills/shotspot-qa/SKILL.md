@@ -28,8 +28,10 @@ Consult repo-local `.codex` files only when legacy task history is specifically 
 ## Validation order
 
 1. affected-area validation first
-2. quick regression around nearby/high-risk flows second
+2. one tight regression pass around the nearest/high-risk user path second
 3. summarize residual risk clearly
+
+Prefer one focused regression pass with strong evidence over broad shallow testing.
 
 ## Testing rules
 

@@ -2,7 +2,7 @@
 
 ## Active
 
-- [ ] **Re-test photographer login + Stripe connect** on stable API startup path
+- [x] **Re-test photographer login + Stripe connect** on stable API startup path — Tailscale /api mapping fixed to preserve /api prefix; verified `GET /api/health` → 200 and `GET /api/photographers/me` → 401 (no 404)
 - [ ] **Phone OTP — frontend wiring (Option B)** — backend stub done (devOtpCode), now wire OTP screens to real API for full customer join flow
 - [ ] **Dev deploy gate hardening** — env validation, migration safety, local-first checklist
 - [ ] **Fix `mistral/codestral-latest` in OpenClaw allowlist** — restore deterministic Developer model routing
@@ -16,6 +16,11 @@
   - detached/background guidance updated in `apps/api/README.md`
   - launch-mode guidance updated in `docs/local-dev-runtime.md`
   - verified with `pnpm --dir apps/api start:tsx` and `/api/health`
+- [x] Google OAuth env loading + Tailscale auth path verification — COMPLETE
+  - API dev script now loads repo-root `.env.local` via `dotenv-cli` from `apps/api`
+  - verified `GET http://localhost:4000/auth/google` returns `302 Found`
+  - verified redirect URI is exactly `https://msi.taila8c3ab.ts.net/auth/google/callback`
+  - verified Tailscale mapping `/auth -> http://localhost:4000/auth`
 
 ## In Progress / Recently Completed (2026-03-29)
 

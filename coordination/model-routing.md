@@ -13,13 +13,13 @@ Use for general orchestration, routing, and context handling.
 ## Subagent policies
 
 ### Coordinator subagents
-- Primary: `openai-codex/gpt-5.4-mini`
-- Fallbacks: `mistral/mistral-large-latest` → `anthropic/claude-sonnet-4-6`
+- Primary: `openai-codex/gpt-5.4`
+- Fallbacks: `anthropic/claude-sonnet-4-6` -> `mistral/mistral-large-latest`
 - Use for task planning, decomposition, delegation, and summarization.
 
 ### Architect subagents
 - Primary: `anthropic/claude-sonnet-4-6`
-- Fallbacks: `openai-codex/gpt-5.4-mini` → `mistral/mistral-large-latest`
+- Fallbacks: `openai-codex/gpt-5.4` → `mistral/mistral-large-latest`
 - Use for system design, API structure, schema design, and technical documentation.
 
 ### Developer subagents
@@ -28,8 +28,8 @@ Use for general orchestration, routing, and context handling.
 - Use for code generation, multi-file edits, API implementation, frontend components, and refactoring.
 
 ### QA subagents
-- Primary: `openai-codex/gpt-5.4-nano`
-- Fallbacks: `openai-codex/gpt-5.4-mini` → `anthropic/claude-sonnet-4-6`
+- Primary: `openai-codex/gpt-5.4-mini`
+- Fallbacks: `openai-codex/gpt-5.4` → `anthropic/claude-sonnet-4-6`
 - Use for test generation, diff review, edge-case detection, and validation.
 
 ### UX subagents

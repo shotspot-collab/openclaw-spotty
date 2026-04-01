@@ -4,6 +4,7 @@
 
 - [x] **Re-test photographer login + Stripe connect** on stable API startup path — Tailscale /api mapping fixed to preserve /api prefix; verified `GET /api/health` → 200 and `GET /api/photographers/me` → 401 (no 404)
 - [ ] **Phone OTP — frontend wiring (Option B)** — backend stub done (devOtpCode), now wire OTP screens to real API for full customer join flow
+  - backend dev stub selection now keys off `SMS_PROVIDER` instead of AWS credential presence so local/public dev remains stub-safe
 - [ ] **Dev deploy gate hardening** — env validation, migration safety, local-first checklist
 - [ ] **Fix `mistral/codestral-latest` in OpenClaw allowlist** — restore deterministic Developer model routing
 - [ ] **OTP rate limiting** — per-phone throttle before public exposure

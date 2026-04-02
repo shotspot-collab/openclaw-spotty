@@ -7,15 +7,18 @@
   - Handoff: `coordination/handoffs.md` (2026-04-01 Architect → Developer)
   - Stages: tokens.ts → auth → customer-flow → photographer-dashboard → session-dashboard → public-pages → verify screens
   - QA finding (2026-04-01 follow-up): CSS parse blocker appears cleared; local + public affected routes now render successfully and public URL matches local behavior on the touched public pages
-  - Follow-on (separate task): sticky CTA bar, floating cart pill, masonry gallery grid, OTP digit auto-advance, hold countdown
+  - Follow-on (separate task): sticky CTA bar, floating cart pill, masonry gallery grid, OTP digit auto-advance, hold countdown — implemented in web UX slice; pending QA/browser verification
+  - Architect handoff ready (2026-04-02): `ux/ux-followon-impl-handoff.md` — all 5 items scoped, ready for Developer
 
 - [x] **Re-test photographer login + Stripe connect** on stable API startup path — Tailscale /api mapping fixed to preserve /api prefix; verified `GET /api/health` → 200 and `GET /api/photographers/me` → 401 (no 404)
-- [ ] **Phone OTP — frontend wiring (Option B)** — backend stub done (devOtpCode), now wire OTP screens to real API for full customer join flow
-  - backend dev stub selection now keys off `SMS_PROVIDER` instead of AWS credential presence so local/public dev remains stub-safe
 - [ ] **Dev deploy gate hardening** — env validation, migration safety, local-first checklist
+- [ ] **Payout ledger / admin payout ops** (pre-launch, can defer)
+
+## Backlog
+
+- [ ] **Phone OTP — frontend wiring (Option B)** — original OTP UI path kept out of current MVP closeout; backend dev stub selection now keys off `SMS_PROVIDER` instead of AWS credential presence so local/public dev remains stub-safe
 - [ ] **Fix `mistral/codestral-latest` in OpenClaw allowlist** — restore deterministic Developer model routing
 - [ ] **OTP rate limiting** — per-phone throttle before public exposure
-- [ ] **Payout ledger / admin payout ops** (pre-launch, can defer)
 
 ## In Progress / Recently Completed (2026-03-31)
 

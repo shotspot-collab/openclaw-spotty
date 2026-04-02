@@ -2,6 +2,13 @@
 
 ## Active
 
+- [ ] **Whole-app UX token rollout** — extend approved homepage palette + Sora removal across all 8 CSS modules and tokens.ts
+  - Plan: `ux/whole-app-impl-plan.md`
+  - Handoff: `coordination/handoffs.md` (2026-04-01 Architect → Developer)
+  - Stages: tokens.ts → auth → customer-flow → photographer-dashboard → session-dashboard → public-pages → verify screens
+  - QA finding (2026-04-01 follow-up): CSS parse blocker appears cleared; local + public affected routes now render successfully and public URL matches local behavior on the touched public pages
+  - Follow-on (separate task): sticky CTA bar, floating cart pill, masonry gallery grid, OTP digit auto-advance, hold countdown
+
 - [x] **Re-test photographer login + Stripe connect** on stable API startup path — Tailscale /api mapping fixed to preserve /api prefix; verified `GET /api/health` → 200 and `GET /api/photographers/me` → 401 (no 404)
 - [ ] **Phone OTP — frontend wiring (Option B)** — backend stub done (devOtpCode), now wire OTP screens to real API for full customer join flow
   - backend dev stub selection now keys off `SMS_PROVIDER` instead of AWS credential presence so local/public dev remains stub-safe

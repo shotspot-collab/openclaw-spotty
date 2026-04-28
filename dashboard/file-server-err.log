@@ -310,3 +310,80 @@ Source: local loopback
 Config: C:\Users\nbobb\.openclaw\openclaw.json
 Bind: loopback
 
+Gateway call failed: Error: gateway closed (1006 abnormal closure (no close frame)): no close reason
+Gateway target: ws://127.0.0.1:18789
+Source: local loopback
+Config: C:\Users\nbobb\.openclaw\openclaw.json
+Bind: loopback
+[file-server] sessions.list failed: Command failed: openclaw gateway call sessions.list
+Gateway call failed: Error: gateway closed (1006 abnormal closure (no close frame)): no close reason
+Gateway target: ws://127.0.0.1:18789
+Source: local loopback
+Config: C:\Users\nbobb\.openclaw\openclaw.json
+Bind: loopback
+
+Gateway call failed: Error: gateway closed (1006 abnormal closure (no close frame)): no close reason
+Gateway target: ws://127.0.0.1:18789
+Source: local loopback
+Config: C:\Users\nbobb\.openclaw\openclaw.json
+Bind: loopback
+[file-server] sessions.list failed: Command failed: openclaw gateway call sessions.list
+Gateway call failed: Error: gateway closed (1006 abnormal closure (no close frame)): no close reason
+Gateway target: ws://127.0.0.1:18789
+Source: local loopback
+Config: C:\Users\nbobb\.openclaw\openclaw.json
+Bind: loopback
+
+Gateway call failed: Error: gateway closed (1006 abnormal closure (no close frame)): no close reason
+Gateway target: ws://127.0.0.1:18789
+Source: local loopback
+Config: C:\Users\nbobb\.openclaw\openclaw.json
+Bind: loopback
+[file-server] sessions.list failed: Command failed: openclaw gateway call sessions.list
+Gateway call failed: Error: gateway closed (1006 abnormal closure (no close frame)): no close reason
+Gateway target: ws://127.0.0.1:18789
+Source: local loopback
+Config: C:\Users\nbobb\.openclaw\openclaw.json
+Bind: loopback
+
+Gateway call failed: Error: gateway closed (1006 abnormal closure (no close frame)): no close reason
+Gateway target: ws://127.0.0.1:18789
+Source: local loopback
+Config: C:\Users\nbobb\.openclaw\openclaw.json
+Bind: loopback
+[file-server] sessions.list failed: Command failed: openclaw gateway call sessions.list
+Gateway call failed: Error: gateway closed (1006 abnormal closure (no close frame)): no close reason
+Gateway target: ws://127.0.0.1:18789
+Source: local loopback
+Config: C:\Users\nbobb\.openclaw\openclaw.json
+Bind: loopback
+
+Gateway call failed: Error: gateway closed (1006 abnormal closure (no close frame)): no close reason
+Gateway target: ws://127.0.0.1:18789
+Source: local loopback
+Config: C:\Users\nbobb\.openclaw\openclaw.json
+Bind: loopback
+[file-server] sessions.list failed: Command failed: openclaw gateway call sessions.list
+Gateway call failed: Error: gateway closed (1006 abnormal closure (no close frame)): no close reason
+Gateway target: ws://127.0.0.1:18789
+Source: local loopback
+Config: C:\Users\nbobb\.openclaw\openclaw.json
+Bind: loopback
+
+Gateway call failed: Error: gateway closed (1006 abnormal closure (no close frame)): no close reason
+Gateway target: ws://127.0.0.1:18789
+Source: local loopback
+Config: C:\Users\nbobb\.openclaw\openclaw.json
+Bind: loopback
+[file-server] sessions.list failed: Command failed: openclaw gateway call sessions.list
+Gateway call failed: Error: gateway closed (1006 abnormal closure (no close frame)): no close reason
+Gateway target: ws://127.0.0.1:18789
+Source: local loopback
+Config: C:\Users\nbobb\.openclaw\openclaw.json
+Bind: loopback
+
+[file-server] sessions.list failed: spawnSync C:\WINDOWS\system32\cmd.exe ETIMEDOUT
+[file-server] sessions.list failed: spawnSync C:\WINDOWS\system32\cmd.exe ETIMEDOUT
+[file-server] sessions.list failed: spawnSync C:\WINDOWS\system32\cmd.exe ETIMEDOUT
+[file-server] sessions.list failed: spawnSync C:\WINDOWS\system32\cmd.exe ETIMEDOUT
+[file-server] sessions.list failed: Command failed: openclaw gateway call sessions.list

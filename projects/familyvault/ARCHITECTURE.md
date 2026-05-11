@@ -2,458 +2,682 @@
 ## Architecture & Phased Build Plan
 
 > **Classification: PRIVATE** — Internal planning document. Do not distribute.
-> Last updated: 2026-05-09 | Status: Foundation Draft
+> Last updated: 2026-05-10 | Status: v2 — Revised Architecture
 
 ---
 
 ## Table of Contents
 
 1. [System Overview](#1-system-overview)
-2. [Architecture Diagram](#2-architecture-diagram)
-3. [Data Model](#3-data-model)
-4. [API Surface](#4-api-surface)
-5. [Security Architecture](#5-security-architecture)
-6. [Access Control Matrix](#6-access-control-matrix)
-7. [Phase 1 — Foundation](#7-phase-1--foundation)
-8. [Phase 2 — Live Data](#8-phase-2--live-data)
-9. [Phase 3 — Intelligence](#9-phase-3--intelligence)
-10. [Phase 4 — Assistant](#10-phase-4--assistant)
-11. [Infrastructure & Deployment](#11-infrastructure--deployment)
-12. [Operational Considerations](#12-operational-considerations)
+2. [Platform Mindset — Multi-Tenant from Day 1](#2-platform-mindset--multi-tenant-from-day-1)
+3. [Tech Stack Decisions](#3-tech-stack-decisions)
+4. [Ownership Hierarchy & Entity Model](#4-ownership-hierarchy--entity-model)
+5. [Architecture Diagram](#5-architecture-diagram)
+6. [Data Model — Full Schema](#6-data-model--full-schema)
+7. [Ownership Migration Workflow](#7-ownership-migration-workflow)
+8. [Notification System](#8-notification-system)
+9. [API Surface](#9-api-surface)
+10. [Security Architecture](#10-security-architecture)
+11. [Access Control Matrix](#11-access-control-matrix)
+12. [Hermes Agent Layer](#12-hermes-agent-layer)
+13. [ChatGPT Custom GPT Integration](#13-chatgpt-custom-gpt-integration)
+14. [Outbound Sharing Layer (Future)](#14-outbound-sharing-layer-future)
+15. [Phase 1 — Foundation + Entity & Asset Registry](#15-phase-1--foundation--entity--asset-registry)
+16. [Phase 2 — Live Data (Plaid)](#16-phase-2--live-data-plaid)
+17. [Phase 3 — Intelligence (Hermes + Gmail)](#17-phase-3--intelligence-hermes--gmail)
+18. [Phase 4 — Advisor Portal + Multi-Tenant Signup](#18-phase-4--advisor-portal--multi-tenant-signup)
+19. [Infrastructure & Deployment](#19-infrastructure--deployment)
+20. [Operational Considerations](#20-operational-considerations)
 
 ---
 
 ## 1. System Overview
 
-FamilyVault is a **private, self-hosted personal finance operating system** for a family trust. It aggregates financial data from bank accounts, brokerages, real estate, private investments, and entity holdings into a unified dashboard with an AI-powered query layer.
+FamilyVault is a **private, multi-tenant personal finance operating system** built for family trusts and high-net-worth families. It aggregates financial data from bank accounts, brokerages, real estate, private investments, and entity holdings into a unified dashboard with an AI-powered query layer.
 
-### Users & Roles
+The system is architected as a **multi-tenant platform from day one**, scoping all data to a `family_id`. The initial deployment serves a single family (Naveen + wife), but the architecture supports future tenants, subscription tiers, and an advisor portal without re-platforming.
+
+### Core Capabilities
+
+| Capability | Description |
+|---|---|
+| **Entity Registry** | Trust, LLC, LP hierarchy with parent/child relationships |
+| **Asset Registry** | Real estate, private investments, manual valuations, liabilities |
+| **Live Account Data** | Bank, brokerage, retirement via Plaid |
+| **Net Worth Dashboard** | Real-time roll-up by entity, ownership type, and total |
+| **Document Intelligence** | Google Drive indexing, semantic search |
+| **Email Parsing** | Gmail capital calls, distributions, K-1 notices (Phase 3) |
+| **AI Assistant** | ChatGPT Custom GPT with Actions against Vault API |
+| **Ownership Migration** | Pending review workflow for retitling accounts/assets |
+| **Notification Feed** | In-app alerts for both users on key events |
+| **Audit Trail** | Immutable log of every read/write/query action |
+| **Sharing Layer** | Scoped guest portal, report generation (future v0.2+) |
+
+### Users & Roles (v1)
 
 | Role | Who | Scope |
 |------|-----|-------|
-| `owner` | Husband, Wife | Full access to all data, admin functions |
+| `owner` | Husband, Wife | Full access to all family data, admin functions |
 | `successor_trustee` | Designated trustees | Read + limited write on trust/entity data |
 | `heir` | Son | Curated net worth view, limited document access |
 
-### Key Capabilities
+### Subscription Tiers (Platform)
 
-- **Net worth dashboard** with live bank/brokerage/real estate data
-- **Entity registry** for trust, LLCs, private investments (AI-extracted)
-- **Document intelligence** — Google Drive indexing, OCR, semantic search
-- **Email parsing** — Gmail push notifications, auto-extract capital calls, distributions, K-1 notices
-- **AI assistant** — natural language queries over all financial data
-- **Audit trail** — immutable log of every read/write/query action
+| Tier | Who | Features |
+|------|-----|----------|
+| `personal` | Individual family | Core Vault features |
+| `family_trust` | Family with trust/LLC structure | Full entity hierarchy, multi-user |
+| `advisor` | CPA / financial advisor | Manage multiple family clients (Phase 4) |
 
 ---
 
-## 2. Architecture Diagram
+## 2. Platform Mindset — Multi-Tenant from Day 1
+
+Every tenant-scoped entity in the system carries a `family_id`. This is enforced at two layers:
+
+1. **Application layer** — all API queries filter by `family_id` derived from the authenticated session
+2. **Database layer** — PostgreSQL Row-Level Security (RLS) policies enforce tenant isolation
+
+### RLS Enforcement Pattern
+
+```sql
+-- Enable RLS on all tenant tables
+ALTER TABLE entities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
+-- (repeat for all tenant-scoped tables)
+
+-- App sets session variable on every request
+-- SET LOCAL app.current_family_id = '<uuid>';
+-- SET LOCAL app.current_user_id = '<uuid>';
+-- SET LOCAL app.current_role = 'owner';
+
+-- Policy example: all roles within a family see their family's data
+CREATE POLICY tenant_isolation ON entities
+    FOR ALL TO app_role
+    USING (family_id = current_setting('app.current_family_id')::uuid);
+```
+
+### FastAPI Middleware Pattern
+
+```python
+# middleware/tenant.py
+async def set_tenant_context(request: Request, call_next):
+    session = get_session(request)
+    async with db.transaction():
+        await db.execute(
+            f"SET LOCAL app.current_family_id = '{session.family_id}'"
+        )
+        await db.execute(
+            f"SET LOCAL app.current_user_id = '{session.user_id}'"
+        )
+        await db.execute(
+            f"SET LOCAL app.current_role = '{session.role}'"
+        )
+    response = await call_next(request)
+    return response
+```
+
+### Tenant Isolation Guarantees
+
+- A family can **never** read or write another family's data
+- Even if a bug exists in application-layer filtering, RLS at DB layer prevents cross-tenant leakage
+- The `families` table itself is the trust root — no family-level data exists without an entry there
+- Admin operations (e.g., billing, support) use a separate privileged `admin_role` that bypasses RLS, never exposed to regular API consumers
+
+---
+
+## 3. Tech Stack Decisions
+
+### Rationale Summary
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| Backend | FastAPI (Python) | Native AI/ML ecosystem, clean async, OpenAPI generation |
+| Frontend | Next.js 14+ (React) | SSR, excellent DX, TanStack Query, ShadCN |
+| Database | PostgreSQL + pgvector | RLS, JSONB, vector search, battle-tested |
+| AI Agent | Hermes Agent (Nous Research) | Open-source, custom skills, no vendor lock-in |
+| AI Assistant | ChatGPT Custom GPT + Actions | User's own OpenAI OAuth, embedded iframe |
+| Account Data | Plaid | Industry standard, broad institution coverage |
+| Drive Integration | Google Drive API + OAuth | User-owned credentials |
+| Document Storage | AWS S3 + RDS pgvector | Raw files in S3, embeddings in pgvector |
+| Infrastructure | AWS (ECS Fargate, RDS, S3, ALB) | Serverless containers, managed DB |
+| Secrets | AWS Secrets Manager | Centralized, rotation support |
+
+### What We Are NOT Using
+
+- ❌ **Google/Gemini models** — not in any part of the AI stack
+- ❌ **LangChain** — replaced by Hermes Agent for background ingestion
+- ❌ **Custom LLM worker** — Hermes handles background agent tasks via skills
+- ❌ **Azure OpenAI** — not needed; user's own OpenAI key via Custom GPT
+- ❌ **Pinecone / Weaviate** — pgvector handles vector search at this scale
+
+### Dependency Matrix
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  RUNTIME DEPENDENCIES                                           │
+│                                                                 │
+│  Backend (Python 3.12+)                                         │
+│    fastapi, uvicorn, asyncpg, sqlalchemy (async)                │
+│    alembic (migrations)                                         │
+│    python-jose (JWT), pyotp (TOTP)                              │
+│    httpx (async HTTP client)                                    │
+│    google-auth, google-api-python-client                        │
+│    plaid-python                                                 │
+│    boto3 (S3, Secrets Manager, Textract)                        │
+│    openai (embeddings only, not chat)                           │
+│    pgvector (python client)                                     │
+│    cryptography (field-level encryption)                        │
+│                                                                 │
+│  Frontend (Node 20+)                                            │
+│    next@14, react@18, typescript                                │
+│    @tanstack/react-query                                        │
+│    shadcn/ui, tailwindcss                                       │
+│    recharts (net worth charts)                                  │
+│    @plaid/react (Plaid Link widget)                             │
+│    zod (schema validation)                                      │
+│                                                                 │
+│  Hermes Agent                                                   │
+│    hermes (Nous Research open-source)                           │
+│    Custom skills: gmail_watcher, drive_indexer                  │
+│    Calls Vault FastAPI for writes/notifications                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. Ownership Hierarchy & Entity Model
+
+### Real Ownership Structure
+
+The system models a 3-tier ownership hierarchy that reflects how a family trust actually holds assets:
+
+```
+Family Trust (top-level entity — type: trust)
+  │
+  ├── LLC #1 (entity owned by trust — type: llc)
+  │     ├── Real Estate Asset #1
+  │     ├── Real Estate Asset #2
+  │     └── Private Investment (direct)
+  │
+  ├── LLC #2 (entity owned by trust — type: llc)
+  │     ├── Real Estate Asset #3
+  │     └── Bank Account (LLC checking)
+  │
+  ├── LP #1 (limited partnership — type: lp)
+  │     └── Investment Holdings
+  │
+  └── Assets held directly by trust
+        └── Brokerage Account
+
+Personal (outside trust — type: personal / joint)
+  ├── Joint accounts (husband + wife, with % split — type: joint)
+  │     ├── Joint Checking
+  │     └── Joint Savings
+  └── Sole accounts (type: personal, sole_owner_id set)
+        ├── Husband 401k
+        └── Wife 401k
+```
+
+### Entity Types
+
+| Type | Description |
+|------|-------------|
+| `trust` | Family trust (top-level, can hold LLCs, assets, accounts) |
+| `llc` | Limited liability company (owned by trust or another LLC) |
+| `lp` | Limited partnership |
+| `personal` | Personal account/asset (individual, outside trust) |
+| `joint` | Jointly held between two or more individuals |
+
+### Asset Ownership Types
+
+| ownership_type | Description | Notes |
+|---|---|---|
+| `entity_held` | Asset held by a trust/LLC/LP entity | entity_id is set, sole_owner_id is null |
+| `joint_personal` | Jointly held by individuals (not via entity) | asset_joint_ownership table has % split |
+| `sole_personal` | Held by one individual only | sole_owner_id is set |
+
+### Net Worth Roll-Up Logic
+
+```
+Total Family Net Worth =
+  Σ entity_held assets (equity = value − liability)
+  + Σ joint_personal assets (full value counted once)
+  + Σ sole_personal assets (husband + wife)
+  + Σ account balances (net of liabilities)
+
+Entity-Level Net Worth =
+  Σ assets where entity_id = <entity_id>
+  + Σ account balances where entity_id = <entity_id>
+  (recursive: includes child entities)
+
+By Ownership Type =
+  entity_held: assets/accounts via entity_id
+  joint_personal: joint-split assets/accounts
+  sole_personal: per-user assets/accounts
+```
+
+---
+
+## 5. Architecture Diagram
+
+### System Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              FAMILYVAULT SYSTEM                                 │
-│                           (Private AWS Deployment)                              │
+│                           FAMILYVAULT SYSTEM                                    │
+│                      (Private AWS Deployment — Multi-Tenant)                    │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │  CLIENTS                                                                         │
 │                                                                                  │
-│   ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐          │
-│   │  Browser (Owner) │    │  Browser (Trustee│    │  Browser (Heir)  │          │
-│   │   Next.js SPA    │    │   Next.js SPA    │    │   Next.js SPA    │          │
-│   └────────┬─────────┘    └────────┬─────────┘    └────────┬─────────┘          │
-└────────────┼──────────────────────┼──────────────────────┼───────────────────────┘
-             │  HTTPS               │  HTTPS               │  HTTPS
-             └──────────────────────┼──────────────────────┘
-                                    │
-┌───────────────────────────────────▼──────────────────────────────────────────────┐
-│  EDGE / LOAD BALANCER                                                            │
-│   AWS ALB → CloudFront (static assets + CDN)                                     │
-│   WAF rules: geo-restrict, rate limit, bot protection                            │
-└───────────────────────────────────┬──────────────────────────────────────────────┘
-                                    │
-             ┌──────────────────────┼──────────────────────┐
-             │                      │                      │
-┌────────────▼──────────┐  ┌────────▼──────────┐  ┌───────▼───────────┐
-│  NEXT.JS FRONTEND     │  │  FASTAPI BACKEND   │  │  BACKGROUND       │
-│  ECS Fargate          │  │  ECS Fargate       │  │  WORKERS          │
-│                       │  │                   │  │  ECS Fargate      │
-│  - React UI           │  │  - REST API       │  │                   │
-│  - Role-gated views   │  │  - Auth layer     │  │  - Plaid sync     │
-│  - Chart.js / D3      │  │  - Business logic │  │  - Gmail watcher  │
-│  - TanStack Query     │  │  - LangChain      │  │  - Doc indexer    │
-│  - ShadCN UI          │  │  - Audit logger   │  │  - RE value sync  │
-└───────────────────────┘  └────────┬──────────┘  └───────┬───────────┘
-                                    │                      │
-                        ┌───────────┼──────────────────────┘
-                        │           │
-         ┌──────────────▼──┐  ┌─────▼──────────────────────────────────┐
-         │  POSTGRESQL +   │  │  EXTERNAL APIs                         │
-         │  pgvector        │  │                                        │
-         │  RDS (encrypted)│  │  ┌─────────────┐  ┌────────────────┐  │
-         │                 │  │  │  Plaid API  │  │  ATTOM Data    │  │
-         │  - Core tables  │  │  │  (bank/brok)│  │  (RE values)   │  │
-         │  - Vector store │  │  └─────────────┘  └────────────────┘  │
-         │  - Audit log    │  │                                        │
-         └─────────────────┘  │  ┌─────────────┐  ┌────────────────┐  │
-                              │  │  Gmail API  │  │  Google Drive  │  │
-         ┌─────────────────┐  │  │  (push ntf) │  │  API           │  │
-         │  AWS S3         │  │  └─────────────┘  └────────────────┘  │
-         │  (encrypted)    │  │                                        │
-         │                 │  │  ┌─────────────┐  ┌────────────────┐  │
-         │  - Raw docs     │  │  │  OpenAI     │  │  AWS Textract  │  │
-         │  - OCR output   │  │  │  GPT-4 API  │  │  (OCR)         │  │
-         │  - Email bodies │  │  └─────────────┘  └────────────────┘  │
-         └─────────────────┘  └────────────────────────────────────────┘
-
-         ┌─────────────────┐
-         │  AWS Secrets    │
-         │  Manager        │
-         │  - API keys     │
-         │  - OAuth creds  │
-         │  - Plaid tokens │
-         └─────────────────┘
-
-         ┌─────────────────┐
-         │  AWS CloudWatch │
-         │  + SES          │
-         │  - Logs         │
-         │  - Alerts       │
-         │  - Monitoring   │
-         └─────────────────┘
+│   ┌──────────────────────┐   ┌──────────────────────┐   ┌────────────────────┐  │
+│   │  Browser — Owner     │   │  Browser — Trustee   │   │  ChatGPT GPT UI    │  │
+│   │  Next.js Dashboard   │   │  Next.js Dashboard   │   │  (ChatGPT.com)     │  │
+│   │  + Embedded GPT      │   │  (trust-scoped)      │   │  Custom GPT        │  │
+│   └──────────┬───────────┘   └──────────┬───────────┘   └─────────┬──────────┘  │
+└──────────────┼──────────────────────────┼─────────────────────────┼──────────────┘
+               │  HTTPS                   │  HTTPS                  │  HTTPS
+               └──────────────────────────┼─────────────────────────┘
+                                          │
+┌─────────────────────────────────────────▼────────────────────────────────────────┐
+│  EDGE                                                                            │
+│   AWS ALB (SSL termination) → CloudFront (static assets)                         │
+│   WAF: geo-restrict, rate limit, bot protection                                  │
+└──────────────────────────────────────────┬───────────────────────────────────────┘
+                                           │
+                  ┌────────────────────────┼────────────────────────┐
+                  │                        │                        │
+     ┌────────────▼──────────┐  ┌──────────▼──────────┐  ┌─────────▼───────────┐
+     │  NEXT.JS FRONTEND     │  │  FASTAPI BACKEND     │  │  HERMES AGENT       │
+     │  ECS Fargate          │  │  ECS Fargate         │  │  ECS Fargate        │
+     │                       │  │                      │  │                     │
+     │  - React UI           │  │  - REST API          │  │  Nous Research      │
+     │  - Role-gated views   │  │  - Auth layer        │  │  open-source agent  │
+     │  - Net worth charts   │  │  - Business logic    │  │                     │
+     │  - Entity tree        │  │  - OpenAPI spec      │  │  Skills:            │
+     │  - GPT iframe embed   │  │  - Audit logger      │  │  - gmail_watcher    │
+     │  - Notification feed  │  │  - Tenant RLS ctx    │  │  - drive_indexer    │
+     │  - Pending reviews    │  │  - Notification svc  │  │                     │
+     │  - TanStack Query     │  │                      │  │  Calls Vault API    │
+     │  - ShadCN UI          │  │                      │  │  to write data +    │
+     └───────────────────────┘  └──────────┬───────────┘  │  fire notifications │
+                                           │              └─────────┬───────────┘
+                              ┌────────────┼─────────────────────────┘
+                              │            │
+         ┌────────────────────▼──┐   ┌─────▼──────────────────────────────────────┐
+         │  POSTGRESQL           │   │  EXTERNAL SERVICES                         │
+         │  RDS (encrypted)      │   │                                            │
+         │  + pgvector           │   │  ┌──────────────┐  ┌────────────────────┐  │
+         │                       │   │  │  Plaid API   │  │  Google Drive API  │  │
+         │  RLS on all tables    │   │  │  (bank/brok) │  │  (doc indexing)    │  │
+         │  family_id scoping    │   │  └──────────────┘  └────────────────────┘  │
+         │                       │   │                                            │
+         │  Tables:              │   │  ┌──────────────┐  ┌────────────────────┐  │
+         │  - families           │   │  │  Gmail API   │  │  OpenAI Embeddings │  │
+         │  - users              │   │  │  (Phase 3)   │  │  text-embedding-3  │  │
+         │  - entities           │   │  └──────────────┘  └────────────────────┘  │
+         │  - assets             │   │                                            │
+         │  - accounts           │   │  ┌──────────────┐  ┌────────────────────┐  │
+         │  - documents          │   │  │  AWS Textract│  │  ATTOM Data (RE)   │  │
+         │  - notifications      │   │  │  (OCR)       │  │  (Phase 2+)        │  │
+         │  - audit_log          │   │  └──────────────┘  └────────────────────┘  │
+         │  - pending_migrations │   └────────────────────────────────────────────┘
+         └───────────────────────┘
+         ┌───────────────────────┐
+         │  AWS S3               │
+         │  (encrypted)          │
+         │  - Raw documents      │
+         │  - OCR output         │
+         │  - Email bodies       │
+         └───────────────────────┘
+         ┌───────────────────────┐
+         │  AWS Secrets Manager  │
+         │  - API keys           │
+         │  - OAuth credentials  │
+         │  - Plaid tokens       │
+         │  - Encryption master  │
+         └───────────────────────┘
 ```
 
-### Component Interaction Flow
+### Request Flow Diagrams
 
 ```
-User Request Flow:
-  Browser → ALB → Next.js (SSR/API route proxy) → FastAPI → DB/S3/External APIs
+─── BROWSER → VAULT API ───────────────────────────────────────────────────────────
+  Browser → ALB → Next.js (SSR / API proxy) → FastAPI → DB / S3 / External APIs
+  Middleware sets: SET LOCAL app.current_family_id, current_user_id, current_role
+  RLS enforces tenant isolation at DB layer automatically
 
-AI Query Flow:
-  Browser → FastAPI /chat → LangChain Agent → Tool calls (DB, S3, external)
-                                             ↓
-                                        OpenAI GPT-4 API
-                                             ↓
-                                    Synthesized response → Browser
+─── CHATGPT GPT → VAULT API ───────────────────────────────────────────────────────
+  ChatGPT Custom GPT (user's account) → Vault OpenAPI Actions endpoint
+  → FastAPI /v1/gpt/... routes → DB queries (tenant-scoped via JWT family_id)
+  → JSON response → GPT synthesizes natural language answer
 
-Document Ingestion Flow:
-  Google Drive (push webhook) → FastAPI webhook handler
-    → Download file → S3 (raw)
-    → AWS Textract (OCR)
-    → Chunking + Embedding (OpenAI embeddings)
-    → pgvector storage
-    → Entity extraction (LangChain)
-    → DB (Document, extracted fields)
+─── HERMES AGENT → VAULT API ──────────────────────────────────────────────────────
+  Hermes Agent (ECS) runs skill on schedule
+    gmail_watcher skill:
+      → Poll Gmail API → extract events → POST /internal/email-events
+      → Vault fires notifications → both users see in-app alert
+    drive_indexer skill:
+      → Poll Drive API → download new files → S3 upload
+      → Textract OCR → embedding → POST /internal/documents/index
 
-Gmail Push Flow:
-  Gmail push notification → FastAPI webhook
-    → Fetch email body → S3 (raw)
-    → LangChain extraction (capital call / distribution / K-1 / fund update)
-    → DB (EmailEvent + extracted data)
-    → Alert if action required
+─── OWNERSHIP MIGRATION FLOW ──────────────────────────────────────────────────────
+  Detection (Plaid metadata change / Gmail parse / manual)
+    → INSERT pending_migrations (status: pending)
+    → Notify both users (in-app notification)
+  User reviews in Pending Reviews card
+    → PATCH /pending-migrations/{id}/confirm
+    → Update account/asset entity_id
+    → Recalculate net worth snapshot
+    → Write audit_log
+    → Notify both users (confirmed)
 ```
 
 ---
 
-## 3. Data Model
+## 6. Data Model — Full Schema
 
 ### Entity Relationship Overview
 
 ```
-User ──< UserRole >── Role
-  │
-  └── AuditLog
-
-Entity (Trust/LLC/Fund)
-  ├── Account (bank/brokerage linked via Plaid OR manual)
-  │     └── AccountBalance (time-series snapshots)
-  ├── Property (real estate)
-  │     └── PropertyValuation (time-series)
-  ├── Asset (private investments, other)
-  └── NetWorthSnapshot (point-in-time total)
-
-Document
-  ├── linked to Entity (optional)
-  ├── DocumentChunk (for vector search)
-  └── ExtractedField (AI-parsed key-value pairs)
-
-EmailEvent
-  ├── linked to Entity (optional)
-  └── ExtractedEvent (capital call, distribution, K-1 arrival, etc.)
+families
+  └── users (family_id)
+  └── entities (family_id) — trust / llc / lp / personal / joint
+        └── entity_ownership (entity_id, user_id, pct)
+        └── assets (family_id, entity_id)
+              └── asset_joint_ownership (asset_id, user_id, pct)
+              └── asset_valuations (asset_id)
+        └── accounts (family_id, entity_id)
+              └── account_joint_ownership (account_id, user_id, pct)
+              └── account_balance_history (account_id)
+  └── pending_migrations (family_id)
+  └── documents (family_id, entity_id)
+        └── document_chunks (document_id) — vector(1536)
+  └── email_events (family_id)
+  └── net_worth_snapshots (family_id)
+  └── notifications (family_id, user_id)
+  └── audit_log (family_id, user_id)
 ```
 
-### Schema Definitions
+### Complete SQL Schema
 
 ```sql
--- ─────────────────────────────────────────
--- AUTH & USERS
--- ─────────────────────────────────────────
+-- ═══════════════════════════════════════════════════════════════
+-- EXTENSIONS
+-- ═══════════════════════════════════════════════════════════════
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "vector";
+
+-- ═══════════════════════════════════════════════════════════════
+-- TENANT CORE
+-- ═══════════════════════════════════════════════════════════════
+
+CREATE TYPE plan_tier AS ENUM ('personal', 'family_trust', 'advisor');
+
+CREATE TABLE families (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name            TEXT NOT NULL,
+    plan_tier       plan_tier NOT NULL DEFAULT 'family_trust',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE users (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email           TEXT NOT NULL UNIQUE,
-    display_name    TEXT NOT NULL,
-    google_sub      TEXT UNIQUE,          -- Google OAuth subject ID
-    totp_secret     TEXT,                 -- encrypted at rest
-    totp_enabled    BOOLEAN DEFAULT FALSE,
-    is_active       BOOLEAN DEFAULT TRUE,
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    last_login_at   TIMESTAMPTZ
-);
-
-CREATE TABLE roles (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name            TEXT NOT NULL UNIQUE, -- owner | successor_trustee | heir
-    description     TEXT
-);
-
-CREATE TABLE user_roles (
-    user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
-    role_id         UUID REFERENCES roles(id) ON DELETE CASCADE,
-    granted_by      UUID REFERENCES users(id),
-    granted_at      TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (user_id, role_id)
+    family_id       UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    email           TEXT NOT NULL,
+    name            TEXT NOT NULL,
+    google_sub      TEXT,                   -- Google OAuth subject ID
+    totp_secret     TEXT,                   -- AES-256 encrypted at rest
+    totp_enabled    BOOLEAN NOT NULL DEFAULT FALSE,
+    role            TEXT NOT NULL DEFAULT 'owner',  -- owner | trustee | heir
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_login_at   TIMESTAMPTZ,
+    UNIQUE (family_id, email)
 );
 
 CREATE TABLE sessions (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
-    token_hash      TEXT NOT NULL,        -- hashed session token
-    mfa_verified    BOOLEAN DEFAULT FALSE,
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    family_id       UUID NOT NULL REFERENCES families(id),
+    token_hash      TEXT NOT NULL,
+    mfa_verified    BOOLEAN NOT NULL DEFAULT FALSE,
     ip_address      INET,
     user_agent      TEXT,
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     expires_at      TIMESTAMPTZ NOT NULL,
     revoked_at      TIMESTAMPTZ
 );
 
--- ─────────────────────────────────────────
--- ENTITY REGISTRY (Trust / LLC / Fund)
--- ─────────────────────────────────────────
+-- ═══════════════════════════════════════════════════════════════
+-- ENTITY HIERARCHY
+-- ═══════════════════════════════════════════════════════════════
 
-CREATE TYPE entity_type AS ENUM (
-    'trust', 'llc', 'private_fund', 'partnership', 'individual', 'other'
-);
+CREATE TYPE entity_type AS ENUM ('trust', 'llc', 'lp', 'personal', 'joint');
+CREATE TYPE entity_status AS ENUM ('active', 'inactive', 'dissolved');
 
 CREATE TABLE entities (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name            TEXT NOT NULL,
-    entity_type     entity_type NOT NULL,
-    tax_id_enc      TEXT,                 -- EIN/SSN encrypted
-    state_of_formation TEXT,
-    formed_date     DATE,
-    description     TEXT,
-    is_active       BOOLEAN DEFAULT TRUE,
-    parent_entity_id UUID REFERENCES entities(id),  -- for nested ownership
-    ownership_pct   NUMERIC(5,2),                   -- % owned by parent
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ DEFAULT NOW(),
-    source          TEXT DEFAULT 'manual', -- manual | ai_extracted
-    source_doc_id   UUID                  -- FK to documents (set after creation)
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    family_id        UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    name             TEXT NOT NULL,
+    type             entity_type NOT NULL,
+    parent_entity_id UUID REFERENCES entities(id),   -- NULL for top-level trust
+    tax_id           TEXT,                            -- EIN/SSN, AES-256 encrypted
+    state            TEXT,                            -- state of formation
+    status           entity_status NOT NULL DEFAULT 'active',
+    notes            TEXT,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ─────────────────────────────────────────
--- ACCOUNTS (bank, brokerage, credit)
--- ─────────────────────────────────────────
+CREATE INDEX idx_entities_family ON entities(family_id);
+CREATE INDEX idx_entities_parent ON entities(parent_entity_id);
 
-CREATE TYPE account_type AS ENUM (
-    'checking', 'savings', 'brokerage', 'retirement', 'credit', 'loan', 'other'
+-- % ownership of entity by user (for non-standard splits)
+CREATE TABLE entity_ownership (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    entity_id   UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    pct         NUMERIC(6,3) NOT NULL CHECK (pct > 0 AND pct <= 100),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (entity_id, user_id)
 );
 
-CREATE TYPE account_source AS ENUM ('plaid', 'manual');
+-- ═══════════════════════════════════════════════════════════════
+-- ASSETS
+-- ═══════════════════════════════════════════════════════════════
 
-CREATE TABLE accounts (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_id       UUID REFERENCES entities(id),
-    account_type    account_type NOT NULL,
-    institution     TEXT NOT NULL,
-    account_name    TEXT NOT NULL,
-    account_mask    TEXT,                 -- last 4 digits
-    currency        TEXT DEFAULT 'USD',
-    plaid_account_id TEXT UNIQUE,
-    plaid_item_id   TEXT,
-    plaid_access_token_enc TEXT,          -- encrypted
-    source          account_source DEFAULT 'manual',
-    is_active       BOOLEAN DEFAULT TRUE,
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE account_balances (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    account_id      UUID REFERENCES accounts(id) ON DELETE CASCADE,
-    balance_date    DATE NOT NULL,
-    current         NUMERIC(18,2),
-    available       NUMERIC(18,2),
-    limit_amount    NUMERIC(18,2),
-    fetched_at      TIMESTAMPTZ DEFAULT NOW(),
-    source          TEXT DEFAULT 'plaid'  -- plaid | manual
-);
-
-CREATE INDEX idx_account_balances_account_date
-    ON account_balances(account_id, balance_date DESC);
-
--- ─────────────────────────────────────────
--- ASSETS (private investments, other)
--- ─────────────────────────────────────────
-
-CREATE TYPE asset_type AS ENUM (
-    'private_equity', 'private_credit', 'hedge_fund',
-    'direct_investment', 'note_receivable', 'cryptocurrency',
-    'collectible', 'other'
+CREATE TYPE asset_ownership_type AS ENUM (
+    'entity_held',       -- owned by a trust/LLC/LP entity
+    'joint_personal',    -- jointly held by individuals (not via entity)
+    'sole_personal'      -- held by one individual only
 );
 
 CREATE TABLE assets (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_id       UUID REFERENCES entities(id),
-    asset_type      asset_type NOT NULL,
-    name            TEXT NOT NULL,
-    description     TEXT,
-    investment_date DATE,
-    cost_basis      NUMERIC(18,2),
-    current_value   NUMERIC(18,2),
-    currency        TEXT DEFAULT 'USD',
-    ownership_pct   NUMERIC(5,2) DEFAULT 100.00,
-    is_active       BOOLEAN DEFAULT TRUE,
-    source          TEXT DEFAULT 'manual',
-    source_doc_id   UUID,
-    last_updated_at TIMESTAMPTZ DEFAULT NOW(),
-    created_at      TIMESTAMPTZ DEFAULT NOW()
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    family_id         UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    entity_id         UUID REFERENCES entities(id),        -- NULL if personal/joint
+    name              TEXT NOT NULL,
+    asset_type        TEXT NOT NULL,  -- real_estate | private_equity | brokerage | etc.
+    ownership_type    asset_ownership_type NOT NULL,
+    sole_owner_id     UUID REFERENCES users(id),           -- set if sole_personal
+    current_value     NUMERIC(18,2) NOT NULL DEFAULT 0,
+    liability_balance NUMERIC(18,2) NOT NULL DEFAULT 0,    -- mortgage, loan, etc.
+    valuation_date    DATE,
+    notes             TEXT,
+    is_active         BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Computed: equity = current_value - liability_balance (app layer)
+
+CREATE INDEX idx_assets_family ON assets(family_id);
+CREATE INDEX idx_assets_entity ON assets(entity_id);
+
+-- % ownership split for joint_personal assets
+CREATE TABLE asset_joint_ownership (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    asset_id    UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    pct         NUMERIC(6,3) NOT NULL CHECK (pct > 0 AND pct <= 100),
+    UNIQUE (asset_id, user_id)
 );
 
 CREATE TABLE asset_valuations (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    asset_id        UUID REFERENCES assets(id) ON DELETE CASCADE,
-    valuation_date  DATE NOT NULL,
-    value           NUMERIC(18,2) NOT NULL,
-    notes           TEXT,
-    source          TEXT,                 -- manual | ai_extracted | fund_statement
-    created_at      TIMESTAMPTZ DEFAULT NOW()
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    asset_id          UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    value             NUMERIC(18,2) NOT NULL,
+    liability_balance NUMERIC(18,2) NOT NULL DEFAULT 0,
+    valuation_date    DATE NOT NULL,
+    source            TEXT NOT NULL DEFAULT 'manual',  -- manual | attom | ai_extracted
+    notes             TEXT,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ─────────────────────────────────────────
--- REAL ESTATE
--- ─────────────────────────────────────────
+CREATE INDEX idx_asset_valuations_asset_date ON asset_valuations(asset_id, valuation_date DESC);
 
-CREATE TABLE properties (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_id       UUID REFERENCES entities(id),
-    address_line1   TEXT NOT NULL,
-    address_line2   TEXT,
-    city            TEXT NOT NULL,
-    state           TEXT NOT NULL,
-    zip             TEXT NOT NULL,
-    county          TEXT,
-    parcel_number   TEXT,
-    property_type   TEXT,                 -- sfr | multi_family | commercial | land
-    bedrooms        INTEGER,
-    bathrooms       NUMERIC(3,1),
-    sqft            INTEGER,
-    lot_sqft        INTEGER,
-    year_built      INTEGER,
-    purchase_date   DATE,
-    purchase_price  NUMERIC(18,2),
-    attom_id        TEXT,                 -- ATTOM Data property ID
-    is_rental       BOOLEAN DEFAULT FALSE,
-    monthly_rent    NUMERIC(10,2),
-    is_active       BOOLEAN DEFAULT TRUE,
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ DEFAULT NOW()
+-- ═══════════════════════════════════════════════════════════════
+-- ACCOUNTS (Plaid-linked or manual)
+-- ═══════════════════════════════════════════════════════════════
+
+CREATE TYPE account_ownership_type AS ENUM (
+    'entity_held',
+    'joint_personal',
+    'sole_personal'
 );
 
-CREATE TABLE property_valuations (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    property_id     UUID REFERENCES properties(id) ON DELETE CASCADE,
-    valuation_date  DATE NOT NULL,
-    estimated_value NUMERIC(18,2),
-    low_estimate    NUMERIC(18,2),
-    high_estimate   NUMERIC(18,2),
-    source          TEXT NOT NULL,       -- attom | manual | zillow
-    raw_response    JSONB,
-    fetched_at      TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE accounts (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    family_id           UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    entity_id           UUID REFERENCES entities(id),       -- NULL if personal/joint
+    plaid_account_id    TEXT UNIQUE,
+    plaid_item_id       TEXT,
+    plaid_access_token  TEXT,                               -- AES-256 encrypted
+    name                TEXT NOT NULL,
+    type                TEXT NOT NULL,    -- checking | savings | brokerage | retirement | credit
+    subtype             TEXT,             -- e.g. '401k', 'roth', 'money_market'
+    ownership_type      account_ownership_type NOT NULL,
+    sole_owner_id       UUID REFERENCES users(id),
+    current_balance     NUMERIC(18,2) NOT NULL DEFAULT 0,
+    available_balance   NUMERIC(18,2),
+    currency            TEXT NOT NULL DEFAULT 'USD',
+    last_synced         TIMESTAMPTZ,
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_property_valuations_property_date
-    ON property_valuations(property_id, valuation_date DESC);
+CREATE INDEX idx_accounts_family ON accounts(family_id);
+CREATE INDEX idx_accounts_entity ON accounts(entity_id);
 
--- ─────────────────────────────────────────
--- NET WORTH SNAPSHOTS
--- ─────────────────────────────────────────
-
-CREATE TABLE net_worth_snapshots (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    snapshot_date   DATE NOT NULL,
-    total_assets    NUMERIC(18,2) NOT NULL,
-    total_liabilities NUMERIC(18,2) NOT NULL DEFAULT 0,
-    net_worth       NUMERIC(18,2) GENERATED ALWAYS AS (total_assets - total_liabilities) STORED,
-    breakdown       JSONB,               -- {cash, real_estate, investments, private, other}
-    notes           TEXT,
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(snapshot_date)
+-- % ownership split for joint_personal accounts
+CREATE TABLE account_joint_ownership (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    account_id  UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    pct         NUMERIC(6,3) NOT NULL CHECK (pct > 0 AND pct <= 100),
+    UNIQUE (account_id, user_id)
 );
 
--- ─────────────────────────────────────────
+CREATE TABLE account_balance_history (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    account_id   UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    balance      NUMERIC(18,2) NOT NULL,
+    recorded_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_account_balance_history_account_time
+    ON account_balance_history(account_id, recorded_at DESC);
+
+-- ═══════════════════════════════════════════════════════════════
+-- OWNERSHIP MIGRATION WORKFLOW
+-- ═══════════════════════════════════════════════════════════════
+
+CREATE TYPE migration_detection_source AS ENUM (
+    'gmail_parse',       -- Hermes detected in email
+    'plaid_metadata',    -- Plaid account metadata changed
+    'manual'             -- user flagged manually
+);
+
+CREATE TYPE migration_status AS ENUM (
+    'pending',           -- awaiting user review
+    'confirmed',         -- user confirmed, migration applied
+    'rejected',          -- user rejected
+    'expired'            -- no action taken, auto-expired
+);
+
+CREATE TABLE pending_migrations (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    family_id        UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    account_id       UUID REFERENCES accounts(id),     -- which account (if account migration)
+    asset_id         UUID REFERENCES assets(id),       -- which asset (if asset migration)
+    from_entity_id   UUID REFERENCES entities(id),     -- current owner entity (NULL = personal)
+    to_entity_id     UUID REFERENCES entities(id),     -- proposed new owner entity (NULL = personal)
+    detection_source migration_detection_source NOT NULL,
+    confidence       NUMERIC(4,3),                     -- 0.000–1.000 for AI detections
+    status           migration_status NOT NULL DEFAULT 'pending',
+    detected_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reviewed_by      UUID REFERENCES users(id),
+    reviewed_at      TIMESTAMPTZ,
+    notes            TEXT,
+    -- raw evidence (email excerpt, Plaid payload, etc.)
+    evidence         JSONB
+);
+
+CREATE INDEX idx_pending_migrations_family_status
+    ON pending_migrations(family_id, status);
+
+-- ═══════════════════════════════════════════════════════════════
 -- DOCUMENTS
--- ─────────────────────────────────────────
-
-CREATE TYPE document_type AS ENUM (
-    'k1', 'tax_return', 'deed', 'trust_doc', 'operating_agreement',
-    'fund_statement', 'capital_call', 'distribution_notice',
-    'property_report', 'insurance', 'appraisal', 'correspondence', 'other'
-);
+-- ═══════════════════════════════════════════════════════════════
 
 CREATE TABLE documents (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_id       UUID REFERENCES entities(id),
-    document_type   document_type NOT NULL DEFAULT 'other',
-    title           TEXT NOT NULL,
-    filename        TEXT,
-    mime_type       TEXT,
-    s3_key          TEXT NOT NULL,        -- raw file location in S3
-    s3_key_ocr      TEXT,                 -- Textract output JSON in S3
-    google_drive_id TEXT UNIQUE,          -- Drive file ID if sourced from Drive
-    google_drive_url TEXT,
-    file_size_bytes BIGINT,
-    doc_year        INTEGER,              -- fiscal/tax year if applicable
-    tags            TEXT[],
-    ocr_status      TEXT DEFAULT 'pending', -- pending | processing | done | failed
-    embedding_status TEXT DEFAULT 'pending',
-    extracted_at    TIMESTAMPTZ,
-    indexed_at      TIMESTAMPTZ,
-    created_at      TIMESTAMPTZ DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ DEFAULT NOW()
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    family_id        UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    entity_id        UUID REFERENCES entities(id),
+    name             TEXT NOT NULL,
+    doc_type         TEXT NOT NULL DEFAULT 'other',
+    -- 'k1' | 'tax_return' | 'trust_doc' | 'operating_agreement' |
+    -- 'fund_statement' | 'capital_call' | 'distribution' |
+    -- 'deed' | 'insurance' | 'appraisal' | 'correspondence' | 'other'
+    drive_file_id    TEXT UNIQUE,                       -- Google Drive file ID
+    s3_key           TEXT,                              -- raw file in S3
+    s3_key_ocr       TEXT,                              -- Textract output in S3
+    mime_type        TEXT,
+    file_size_bytes  BIGINT,
+    tags             TEXT[],
+    ocr_status       TEXT NOT NULL DEFAULT 'pending',   -- pending | processing | done | failed
+    embedding_status TEXT NOT NULL DEFAULT 'pending',
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX idx_documents_family ON documents(family_id);
+CREATE INDEX idx_documents_entity ON documents(entity_id);
 
 CREATE TABLE document_chunks (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    document_id     UUID REFERENCES documents(id) ON DELETE CASCADE,
-    chunk_index     INTEGER NOT NULL,
-    content         TEXT NOT NULL,
-    embedding       VECTOR(1536),         -- OpenAI text-embedding-3-small
-    page_number     INTEGER,
-    created_at      TIMESTAMPTZ DEFAULT NOW()
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_id  UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    chunk_text   TEXT NOT NULL,
+    embedding    VECTOR(1536),                          -- OpenAI text-embedding-3-small
+    chunk_index  INTEGER NOT NULL,
+    page_number  INTEGER,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX idx_document_chunks_document ON document_chunks(document_id);
 CREATE INDEX idx_document_chunks_embedding
     ON document_chunks USING ivfflat (embedding vector_cosine_ops)
     WITH (lists = 100);
 
-CREATE INDEX idx_document_chunks_document
-    ON document_chunks(document_id);
-
-CREATE TABLE extracted_fields (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    document_id     UUID REFERENCES documents(id) ON DELETE CASCADE,
-    field_name      TEXT NOT NULL,        -- "partner_share_income", "distribution_amount"
-    field_value     TEXT,
-    confidence      NUMERIC(4,3),         -- 0.000 - 1.000
-    page_number     INTEGER,
-    extracted_by    TEXT DEFAULT 'ai',
-    created_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
--- ─────────────────────────────────────────
--- EMAIL EVENTS
--- ─────────────────────────────────────────
+-- ═══════════════════════════════════════════════════════════════
+-- EMAIL EVENTS (Phase 3 — Hermes Gmail Skill)
+-- ═══════════════════════════════════════════════════════════════
 
 CREATE TYPE email_event_type AS ENUM (
     'capital_call', 'distribution', 'k1_available', 'fund_update',
@@ -461,64 +685,333 @@ CREATE TYPE email_event_type AS ENUM (
 );
 
 CREATE TABLE email_events (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    gmail_message_id TEXT UNIQUE,
-    gmail_thread_id TEXT,
-    entity_id       UUID REFERENCES entities(id),
-    event_type      email_event_type DEFAULT 'other',
-    subject         TEXT,
-    sender          TEXT,
-    received_at     TIMESTAMPTZ,
-    s3_key_raw      TEXT,                 -- raw email body in S3
-    s3_key_attachments TEXT[],            -- attachment S3 keys
-    extraction_status TEXT DEFAULT 'pending',
-    extracted_at    TIMESTAMPTZ,
-    requires_action BOOLEAN DEFAULT FALSE,
-    action_due_date DATE,
-    is_read         BOOLEAN DEFAULT FALSE,
-    created_at      TIMESTAMPTZ DEFAULT NOW()
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    family_id         UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    gmail_message_id  TEXT UNIQUE,
+    sender            TEXT,
+    subject           TEXT,
+    received_at       TIMESTAMPTZ,
+    event_type        email_event_type NOT NULL DEFAULT 'other',
+    extracted_data    JSONB,                 -- amount, due_date, fund_name, etc.
+    linked_entity_id  UUID REFERENCES entities(id),
+    linked_asset_id   UUID REFERENCES assets(id),
+    status            TEXT NOT NULL DEFAULT 'pending',  -- pending | processed | flagged
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE extracted_events (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email_event_id  UUID REFERENCES email_events(id) ON DELETE CASCADE,
-    event_type      email_event_type NOT NULL,
-    amount          NUMERIC(18,2),
-    currency        TEXT DEFAULT 'USD',
-    due_date        DATE,
-    description     TEXT,
-    raw_excerpt     TEXT,
-    confidence      NUMERIC(4,3),
-    created_at      TIMESTAMPTZ DEFAULT NOW()
+CREATE INDEX idx_email_events_family ON email_events(family_id);
+
+-- ═══════════════════════════════════════════════════════════════
+-- NET WORTH SNAPSHOTS
+-- ═══════════════════════════════════════════════════════════════
+
+CREATE TABLE net_worth_snapshots (
+    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    family_id        UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    snapshot_date    DATE NOT NULL,
+    total_assets     NUMERIC(18,2) NOT NULL DEFAULT 0,
+    total_liabilities NUMERIC(18,2) NOT NULL DEFAULT 0,
+    net_worth        NUMERIC(18,2) GENERATED ALWAYS AS (total_assets - total_liabilities) STORED,
+    breakdown        JSONB,
+    -- breakdown shape:
+    -- {
+    --   "by_entity": [{"entity_id": "...", "name": "...", "value": 0, "liability": 0}],
+    --   "by_ownership_type": {"entity_held": 0, "joint_personal": 0, "sole_personal": 0},
+    --   "by_asset_class": {"cash": 0, "real_estate": 0, "investments": 0, "private": 0}
+    -- }
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (family_id, snapshot_date)
 );
 
--- ─────────────────────────────────────────
+CREATE INDEX idx_net_worth_snapshots_family_date
+    ON net_worth_snapshots(family_id, snapshot_date DESC);
+
+-- ═══════════════════════════════════════════════════════════════
+-- NOTIFICATIONS
+-- ═══════════════════════════════════════════════════════════════
+
+CREATE TYPE notification_type AS ENUM (
+    'ownership_change_detected',   -- account/asset retitling detected
+    'ownership_change_confirmed',  -- user confirmed migration
+    'capital_call',                -- capital call from email
+    'distribution',                -- distribution received
+    'plaid_sync_anomaly',          -- Plaid re-auth needed or balance anomaly
+    'valuation_update_due',        -- asset valuation stale
+    'document_indexed',            -- new document available
+    'system'                       -- admin/system messages
+);
+
+CREATE TYPE notification_status AS ENUM ('unread', 'read', 'dismissed');
+
+CREATE TABLE notifications (
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    family_id            UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    user_id              UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title                TEXT NOT NULL,
+    body                 TEXT NOT NULL,
+    type                 notification_type NOT NULL,
+    status               notification_status NOT NULL DEFAULT 'unread',
+    related_entity_type  TEXT,   -- 'account' | 'asset' | 'entity' | 'document' | 'migration'
+    related_entity_id    UUID,   -- ID of the related record
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    read_at              TIMESTAMPTZ
+);
+
+CREATE INDEX idx_notifications_user_status
+    ON notifications(user_id, status, created_at DESC);
+CREATE INDEX idx_notifications_family ON notifications(family_id);
+
+-- ═══════════════════════════════════════════════════════════════
 -- AUDIT LOG (append-only)
--- ─────────────────────────────────────────
+-- ═══════════════════════════════════════════════════════════════
 
 CREATE TABLE audit_log (
-    id              BIGSERIAL PRIMARY KEY,
-    user_id         UUID REFERENCES users(id),
-    action          TEXT NOT NULL,        -- READ | WRITE | DELETE | LOGIN | QUERY | EXPORT
-    resource_type   TEXT,                 -- document | account | entity | chat | ...
-    resource_id     TEXT,
-    detail          JSONB,
-    ip_address      INET,
-    user_agent      TEXT,
-    session_id      UUID,
-    occurred_at     TIMESTAMPTZ DEFAULT NOW()
+    id                BIGSERIAL PRIMARY KEY,
+    family_id         UUID NOT NULL REFERENCES families(id),
+    user_id           UUID REFERENCES users(id),
+    action            TEXT NOT NULL,      -- READ | CREATE | UPDATE | DELETE | LOGIN | EXPORT | QUERY
+    resource_type     TEXT,               -- entity | asset | account | document | migration | ...
+    resource_id       TEXT,
+    old_value         JSONB,
+    new_value         JSONB,
+    ip_address        INET,
+    user_agent        TEXT,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Audit log is append-only: revoke DELETE + UPDATE on this table in prod
--- Use Postgres row-level security + dedicated audit user
+-- Append-only: revoke DELETE + UPDATE on audit_log in prod
+-- Separate DB user for audit writes only
 
-CREATE INDEX idx_audit_log_user ON audit_log(user_id, occurred_at DESC);
+CREATE INDEX idx_audit_log_family_time ON audit_log(family_id, created_at DESC);
+CREATE INDEX idx_audit_log_user ON audit_log(user_id, created_at DESC);
 CREATE INDEX idx_audit_log_resource ON audit_log(resource_type, resource_id);
+
+-- ═══════════════════════════════════════════════════════════════
+-- ROW-LEVEL SECURITY POLICIES
+-- ═══════════════════════════════════════════════════════════════
+
+-- Enable RLS on all tenant-scoped tables
+ALTER TABLE users              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE entities           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE entity_ownership   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE assets             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE asset_joint_ownership ENABLE ROW LEVEL SECURITY;
+ALTER TABLE asset_valuations   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE accounts           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE account_joint_ownership ENABLE ROW LEVEL SECURITY;
+ALTER TABLE account_balance_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pending_migrations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE documents          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_chunks    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_events       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE net_worth_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_log          ENABLE ROW LEVEL SECURITY;
+
+-- Primary isolation policy (same for all tenant tables)
+-- FastAPI sets: SET LOCAL app.current_family_id = '<uuid>'
+CREATE POLICY tenant_isolation ON entities
+    FOR ALL TO app_role
+    USING (family_id = current_setting('app.current_family_id')::uuid);
+
+-- (Apply same pattern to all other tenant-scoped tables)
+
+-- Notification policy: users see only their own notifications
+CREATE POLICY notification_user_scope ON notifications
+    FOR ALL TO app_role
+    USING (
+        family_id = current_setting('app.current_family_id')::uuid
+        AND user_id = current_setting('app.current_user_id')::uuid
+    );
+```
+
+### Indexes & Performance Notes
+
+```sql
+-- Full-text search on document names and tags
+CREATE INDEX idx_documents_name_fts ON documents USING gin(to_tsvector('english', name));
+CREATE INDEX idx_documents_tags ON documents USING gin(tags);
+
+-- Account balance time-series queries
+CREATE INDEX idx_account_balance_history_account_time
+    ON account_balance_history(account_id, recorded_at DESC);
+
+-- Net worth history queries
+CREATE INDEX idx_net_worth_snapshots_family_date
+    ON net_worth_snapshots(family_id, snapshot_date DESC);
+
+-- Migration review queue
+CREATE INDEX idx_pending_migrations_family_status
+    ON pending_migrations(family_id, status) WHERE status = 'pending';
 ```
 
 ---
 
-## 4. API Surface
+## 7. Ownership Migration Workflow
+
+When an account or asset is retitled (moved from personal ownership to trust/LLC, or vice versa), the system captures this as a pending migration requiring explicit user review.
+
+### Detection Sources
+
+```
+1. Plaid metadata change
+   → Plaid account name or institution name changes
+   → Background sync worker detects discrepancy vs stored entity_id
+   → Confidence: medium (0.60–0.80)
+
+2. Gmail parsing (Phase 3 — Hermes gmail_watcher skill)
+   → Email contains "account retitled", "transferred to trust", etc.
+   → Hermes extracts: account_name, from_entity, to_entity
+   → Confidence: high if entity names match (0.80–0.95)
+
+3. Manual
+   → User opens account detail and clicks "Flag for retitling"
+   → Confidence: 1.00
+```
+
+### State Machine
+
+```
+                  ┌─────────────┐
+  Detection  ───► │   PENDING   │
+                  └──────┬──────┘
+                         │ User reviews in dashboard
+              ┌──────────┴──────────┐
+              │                     │
+         Confirm                Reject
+              │                     │
+              ▼                     ▼
+         ┌──────────┐         ┌──────────┐
+         │CONFIRMED │         │REJECTED  │
+         └──────────┘         └──────────┘
+              │
+    On confirm:
+    1. UPDATE account/asset SET entity_id = to_entity_id
+       (or SET entity_id = NULL for personal)
+    2. Recalculate net_worth_snapshot (or mark stale)
+    3. INSERT audit_log (action: OWNERSHIP_MIGRATED)
+    4. INSERT notification (both users notified)
+    5. UPDATE pending_migrations SET status = 'confirmed'
+```
+
+### API Flow
+
+```
+POST   /pending-migrations/{id}/confirm
+  Body: { notes?: string }
+  → Atomic transaction:
+      UPDATE accounts/assets SET entity_id = pm.to_entity_id
+      UPDATE pending_migrations SET status='confirmed', reviewed_by, reviewed_at
+      INSERT audit_log
+      INSERT notifications (2 rows — one per user)
+      CALL recalculate_net_worth()
+  → Returns: updated migration + new net worth summary
+
+POST   /pending-migrations/{id}/reject
+  Body: { notes?: string }
+  → UPDATE pending_migrations SET status='rejected'
+  → INSERT audit_log
+```
+
+### Dashboard UI — Pending Reviews Card
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ⚠ Pending Ownership Reviews  (2)                               │
+├─────────────────────────────────────────────────────────────────┤
+│  Chase Business Checking ****1234                               │
+│  Detected: Account name changed to "Family Trust Checking"      │
+│  Source: Plaid metadata  |  Confidence: 74%                     │
+│  Proposed: Personal → Family Trust                              │
+│  [✓ Confirm]  [✗ Reject]                                       │
+├─────────────────────────────────────────────────────────────────┤
+│  Fidelity Individual Account ****5678                           │
+│  Detected via: Gmail (retitling notice)                         │
+│  Source: Hermes gmail_watcher  |  Confidence: 91%               │
+│  Proposed: Personal → LLC #1                                    │
+│  [✓ Confirm]  [✗ Reject]                                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 8. Notification System
+
+### Trigger Events
+
+| Event | Trigger Source | Who Notified |
+|---|---|---|
+| `ownership_change_detected` | Plaid sync / Hermes gmail skill / manual | Both users |
+| `ownership_change_confirmed` | User confirms pending migration | Both users |
+| `capital_call` | Hermes gmail_watcher extracts capital call | Both users |
+| `distribution` | Hermes gmail_watcher extracts distribution | Both users |
+| `plaid_sync_anomaly` | Plaid sync fails or requires re-auth | Both users |
+| `valuation_update_due` | Asset valuation date > 90 days stale | Both users |
+| `document_indexed` | Hermes drive_indexer processes new file | Both users |
+| `system` | Admin / internal system message | Targeted user(s) |
+
+### Notification Service (FastAPI)
+
+```python
+# services/notifications.py
+
+async def notify_family(
+    db: AsyncSession,
+    family_id: UUID,
+    type: NotificationType,
+    title: str,
+    body: str,
+    related_entity_type: str | None = None,
+    related_entity_id: UUID | None = None,
+):
+    """Create notifications for all active users in a family."""
+    users = await db.execute(
+        select(User).where(
+            User.family_id == family_id,
+            User.is_active == True,
+            User.role.in_(['owner'])  # owners always notified
+        )
+    )
+    notifications = [
+        Notification(
+            family_id=family_id,
+            user_id=user.id,
+            title=title,
+            body=body,
+            type=type,
+            related_entity_type=related_entity_type,
+            related_entity_id=str(related_entity_id) if related_entity_id else None,
+        )
+        for user in users.scalars()
+    ]
+    db.add_all(notifications)
+    await db.commit()
+```
+
+### In-App Notification Feed (UI)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🔔 Notifications                              [Mark all read]  │
+├─────────────────────────────────────────────────────────────────┤
+│  ●  Ownership change detected                    2 min ago      │
+│     Chase Business Checking may have been retitled              │
+│     → View Pending Reviews                                      │
+├─────────────────────────────────────────────────────────────────┤
+│  ●  Capital call detected                        1 hour ago     │
+│     ABC Fund LP — $50,000 due 2026-06-01                        │
+│     → View Email Event                                          │
+├─────────────────────────────────────────────────────────────────┤
+│     Plaid sync completed                         Yesterday       │
+│     12 accounts updated — all balances current                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 9. API Surface
+
+All routes prefixed with `/api/v1/`. FastAPI auto-generates OpenAPI spec at `/api/v1/openapi.json`.
 
 ### Authentication
 
@@ -531,653 +1024,1017 @@ CREATE INDEX idx_audit_log_resource ON audit_log(resource_type, resource_id);
 | `POST` | `/auth/logout` | Revoke session |
 | `GET` | `/auth/session` | Current session info + role |
 
-### Users & Roles (owner only)
+### Families & Users
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/users` | List all users |
-| `POST` | `/users/invite` | Invite user (email link) |
-| `PATCH` | `/users/{id}/role` | Update user role |
-| `DELETE` | `/users/{id}` | Deactivate user |
+| `GET` | `/family` | Get current family info |
+| `GET` | `/users` | List all users in family |
+| `PATCH` | `/users/{id}/role` | Update user role (owner only) |
+| `PATCH` | `/users/{id}/status` | Activate/deactivate user |
 
 ### Entities
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/entities` | List all entities |
-| `POST` | `/entities` | Create entity manually |
-| `GET` | `/entities/{id}` | Entity detail + linked accounts/assets |
+| `GET` | `/entities` | List entities (tree structure with children) |
+| `POST` | `/entities` | Create entity |
+| `GET` | `/entities/{id}` | Entity detail + linked assets + accounts |
 | `PATCH` | `/entities/{id}` | Update entity |
-| `GET` | `/entities/{id}/net-worth` | Entity-level net worth |
-
-### Accounts
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/accounts` | List accounts (filtered by entity/role) |
-| `POST` | `/accounts` | Manual account creation |
-| `GET` | `/accounts/{id}/balances` | Balance history |
-| `POST` | `/accounts/{id}/balances` | Manual balance entry |
-| `POST` | `/plaid/link-token` | Create Plaid Link token |
-| `POST` | `/plaid/exchange` | Exchange public token |
-| `POST` | `/plaid/sync` | Trigger Plaid balance refresh |
-| `POST` | `/plaid/webhook` | Plaid webhook receiver |
+| `DELETE` | `/entities/{id}` | Soft-delete (set status=inactive) |
+| `GET` | `/entities/{id}/net-worth` | Entity-level net worth (recursive) |
+| `POST` | `/entities/{id}/ownership` | Set user ownership % for entity |
 
 ### Assets
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/assets` | List all private assets |
+| `GET` | `/assets` | List all assets (filterable by entity, ownership_type) |
 | `POST` | `/assets` | Create asset |
 | `GET` | `/assets/{id}` | Asset detail + valuation history |
+| `PATCH` | `/assets/{id}` | Update asset |
+| `DELETE` | `/assets/{id}` | Soft-delete |
 | `POST` | `/assets/{id}/valuations` | Add valuation update |
+| `GET` | `/assets/{id}/valuations` | Valuation history |
+| `POST` | `/assets/{id}/joint-ownership` | Set joint ownership splits |
 
-### Properties
+### Accounts
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/properties` | List all properties |
-| `POST` | `/properties` | Add property |
-| `GET` | `/properties/{id}` | Property detail + valuation history |
-| `POST` | `/properties/{id}/valuations` | Manual valuation |
-| `POST` | `/properties/{id}/refresh-value` | Trigger ATTOM lookup |
+| `GET` | `/accounts` | List accounts (filterable by entity, type, ownership_type) |
+| `POST` | `/accounts` | Manual account creation |
+| `GET` | `/accounts/{id}` | Account detail |
+| `PATCH` | `/accounts/{id}` | Update account (entity assignment, ownership type) |
+| `GET` | `/accounts/{id}/balance-history` | Balance time series |
+| `POST` | `/accounts/{id}/balance-history` | Manual balance entry |
+| `POST` | `/plaid/link-token` | Create Plaid Link token |
+| `POST` | `/plaid/exchange` | Exchange public token, create accounts |
+| `POST` | `/plaid/sync` | Trigger Plaid balance refresh |
+| `POST` | `/plaid/webhook` | Plaid webhook receiver |
+
+### Ownership Migrations
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/pending-migrations` | List pending migrations (family-scoped) |
+| `GET` | `/pending-migrations/{id}` | Migration detail + evidence |
+| `POST` | `/pending-migrations/{id}/confirm` | Confirm migration (applies change) |
+| `POST` | `/pending-migrations/{id}/reject` | Reject migration |
+| `POST` | `/pending-migrations` | Manual migration flag |
 
 ### Net Worth
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/net-worth` | Current net worth breakdown |
+| `GET` | `/net-worth` | Current net worth + breakdown |
 | `GET` | `/net-worth/history` | Historical snapshots |
-| `POST` | `/net-worth/snapshot` | Force snapshot |
+| `POST` | `/net-worth/snapshot` | Force snapshot creation |
+| `GET` | `/net-worth/by-entity` | Net worth grouped by entity |
+| `GET` | `/net-worth/by-ownership-type` | Net worth grouped by ownership type |
 
 ### Documents
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/documents` | List documents (paginated, filterable) |
+| `GET` | `/documents` | List documents (paginated, filterable by entity, doc_type) |
 | `POST` | `/documents` | Upload document |
 | `GET` | `/documents/{id}` | Document metadata |
 | `GET` | `/documents/{id}/download` | Signed S3 URL |
-| `GET` | `/documents/{id}/extracted` | Extracted fields |
+| `PATCH` | `/documents/{id}` | Update tags, entity assignment, doc_type |
 | `POST` | `/documents/search` | Semantic vector search |
 | `POST` | `/drive/sync` | Trigger Google Drive re-index |
 | `POST` | `/drive/webhook` | Drive push notification receiver |
 
-### Email Events
+### Notifications
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/notifications` | List notifications for current user |
+| `POST` | `/notifications/{id}/read` | Mark notification as read |
+| `POST` | `/notifications/read-all` | Mark all as read |
+| `GET` | `/notifications/unread-count` | Unread count (for badge) |
+
+### Email Events (Phase 3)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/email-events` | List parsed email events |
 | `GET` | `/email-events/{id}` | Event detail |
-| `PATCH` | `/email-events/{id}/mark-read` | Mark as read/actioned |
-| `GET` | `/email-events/actions-needed` | Events requiring action |
-| `POST` | `/gmail/webhook` | Gmail push notification receiver |
+| `PATCH` | `/email-events/{id}` | Update status, linked_entity_id |
+| `POST` | `/gmail/webhook` | Gmail push notification receiver (Hermes) |
 
-### AI Assistant
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/chat` | Send message, get streamed response |
-| `GET` | `/chat/history` | Chat history for current session |
-| `DELETE` | `/chat/history` | Clear chat history |
-
-### Admin
+### Audit Log
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/admin/audit-log` | Query audit log (owner only) |
-| `GET` | `/admin/health` | System health check |
-| `POST` | `/admin/jobs/trigger` | Manually trigger background jobs |
+| `GET` | `/audit-log` | Query audit log (owner only, paginated) |
+
+### Internal (Hermes → Vault)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/internal/email-events` | Hermes posts extracted email event |
+| `POST` | `/internal/documents/index` | Hermes posts indexed document record |
+| `POST` | `/internal/pending-migrations` | Hermes posts detected migration |
+| `POST` | `/internal/notifications` | Hermes posts notification to fire |
+
+Internal routes require a shared HMAC secret (not user JWT), validated by `InternalAuthMiddleware`.
+
+### ChatGPT GPT Actions Routes
+
+These routes are designed for use by the ChatGPT Custom GPT:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/v1/gpt/net-worth` | Current net worth summary |
+| `GET` | `/v1/gpt/entities` | List entities with asset counts |
+| `GET` | `/v1/gpt/accounts` | List accounts with balances |
+| `GET` | `/v1/gpt/assets` | List assets with values |
+| `POST` | `/v1/gpt/documents/search` | Semantic document search |
+| `GET` | `/v1/gpt/notifications` | Recent unread notifications |
+| `GET` | `/v1/gpt/pending-migrations` | Pending ownership reviews |
+
+GPT Actions authenticate via OAuth 2.0 (user's own OpenAI account, scoped to their `family_id` JWT).
 
 ---
 
-## 5. Security Architecture
+## 10. Security Architecture
 
 ### Authentication Flow
 
 ```
-1. User → /auth/google → Google OAuth consent screen
-2. Google → /auth/google/callback (with code)
-3. Server exchanges code for tokens, verifies email domain
-4. Server checks user exists + is_active
-5. If TOTP enabled → issue partial session (mfa_verified=false)
-6. User → POST /auth/mfa/verify with TOTP code
-7. Server verifies TOTP → upgrade session (mfa_verified=true)
-8. Full session cookie issued (httpOnly, secure, sameSite=strict)
-9. All API requests require valid session + mfa_verified=true
+1. User → GET /auth/google
+   → Redirect to Google OAuth consent screen
+
+2. Google → GET /auth/google/callback (authorization code)
+   → Server exchanges code for tokens
+   → Verify google_sub in users table
+   → Verify is_active = true
+
+3. If totp_enabled = true:
+   → Issue partial session (mfa_verified = false)
+   → Return: { status: 'mfa_required' }
+
+4. User → POST /auth/mfa/verify { code: '123456' }
+   → Verify TOTP using pyotp
+   → Upgrade session: mfa_verified = true
+   → Set httpOnly + Secure + SameSite=Strict session cookie
+
+5. All API requests:
+   → Validate session cookie
+   → Check mfa_verified = true
+   → Set tenant context (family_id, user_id, role)
+   → Pass to route handler
 ```
 
 ### Encryption at Rest
 
 | Data | Mechanism |
 |------|-----------|
-| Database | AWS RDS storage encryption (AES-256) |
+| Database (all tables) | AWS RDS storage encryption (AES-256, KMS) |
 | S3 documents | SSE-S3 or SSE-KMS per-bucket |
-| Sensitive fields (tax_id, plaid_tokens, totp_secret) | Application-level AES-256 via Python `cryptography` lib, key from AWS Secrets Manager |
-| Backups | RDS automated backups, encrypted |
+| `users.totp_secret` | Application-level AES-256, key from Secrets Manager |
+| `accounts.plaid_access_token` | Application-level AES-256, key from Secrets Manager |
+| `entities.tax_id` | Application-level AES-256, key from Secrets Manager |
+| RDS backups | Encrypted via RDS automated backup |
 
 ### Encryption in Transit
 
-- All traffic: TLS 1.2+ enforced at ALB
-- Internal service-to-service: VPC-private, no public exposure
-- External API calls (Plaid, OpenAI, etc.): TLS, server-side only
+- All traffic: TLS 1.2+ enforced at ALB (TLS 1.3 preferred)
+- Internal ECS service-to-service: VPC-private, TLS not required (same VPC)
+- External API calls: TLS, server-side only (Plaid, Google, OpenAI embeddings)
+- Hermes → Vault API: HMAC-signed requests over TLS
 
 ### Secrets Management
 
-- **AWS Secrets Manager** for all API keys and credentials
-  - Plaid client ID/secret
-  - OpenAI API key
-  - ATTOM API key
-  - Google OAuth client ID/secret
-  - Gmail service account credentials
-  - Database credentials
-  - Application encryption master key
-- **No secrets in environment variables** in production (use Secrets Manager SDK)
-- **No secrets in code** — enforced via pre-commit hooks + CodeGuru scan
+```
+AWS Secrets Manager holds:
+  - PLAID_CLIENT_ID / PLAID_SECRET
+  - GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET
+  - OPENAI_API_KEY (for embeddings only)
+  - GMAIL_SERVICE_ACCOUNT_CREDENTIALS (Phase 3)
+  - DB_CONNECTION_STRING
+  - APP_ENCRYPTION_MASTER_KEY
+  - INTERNAL_HMAC_SECRET (Hermes → Vault auth)
+  - HERMES_API_KEY
+
+Rules:
+  - No secrets in environment variables (Fargate uses Secrets Manager injection)
+  - No secrets in code (pre-commit hook blocks common patterns)
+  - Separate secret per environment (dev / prod)
+```
 
 ### Network Security
 
 ```
 VPC Layout:
-  Public Subnet:  ALB only
-  Private Subnet: ECS tasks (Next.js, FastAPI, Workers)
-  Isolated Subnet: RDS PostgreSQL
+  Public Subnet:    ALB only (no ECS tasks)
+  Private Subnet:   ECS tasks (Next.js, FastAPI, Hermes)
+  Isolated Subnet:  RDS PostgreSQL (no NAT, no internet)
 
 Security Groups:
-  ALB → FastAPI: 8000 only
-  ALB → Next.js: 3000 only
-  FastAPI → RDS: 5432 only
-  FastAPI → S3: via VPC endpoint (no public internet)
-  FastAPI → Secrets Manager: via VPC endpoint
-  Workers → RDS: 5432 only
-  All → External APIs: via NAT Gateway (controlled egress)
+  alb-sg:           Inbound 443 from 0.0.0.0/0
+  nextjs-sg:        Inbound 3000 from alb-sg only
+  fastapi-sg:       Inbound 8000 from alb-sg + nextjs-sg
+  hermes-sg:        Outbound to fastapi-sg (internal calls)
+  rds-sg:           Inbound 5432 from fastapi-sg + hermes-sg only
+  
+VPC Endpoints (no public internet for internal AWS traffic):
+  - S3 Gateway Endpoint
+  - Secrets Manager Interface Endpoint
+  - ECR Interface Endpoint (image pulls)
 ```
 
 ### Audit Logging
 
-- Every authenticated API call writes to `audit_log`
-- Immutable: RDS user has no UPDATE/DELETE on `audit_log`
-- Includes: user, action, resource, IP, user agent, timestamp
-- AI chat queries logged with query text (truncated to 500 chars) + entity IDs referenced
-- CloudWatch Logs for application logs (retain 90 days)
+```
+Every authenticated API call → INSERT audit_log
+  - action: READ | CREATE | UPDATE | DELETE | LOGIN | EXPORT | QUERY
+  - resource_type: entity | asset | account | document | migration | net_worth
+  - resource_id: UUID of affected record
+  - old_value / new_value: JSONB diff (for CREATE / UPDATE / DELETE)
+  - ip_address: from X-Forwarded-For (validated)
+  - created_at: server timestamp (not client)
 
-### Backup & Recovery
-
-- RDS automated backups: 7-day retention, point-in-time recovery
-- S3 versioning enabled on document bucket
-- S3 replication to second region (optional, Phase 2+)
-- Recovery time objective (RTO): 4 hours
-- Recovery point objective (RPO): 24 hours
-
-### Dependency Security
-
-- Python dependencies: `pip-audit` in CI
-- Node dependencies: `npm audit` in CI
-- Docker images: ECR image scanning on push
-- OWASP dependency check in CI pipeline
+Audit log is append-only:
+  - DB user 'app_role' has no UPDATE or DELETE on audit_log table
+  - A separate 'audit_writer' role is used for inserts only
+  - CloudWatch Logs retention: 90 days
+  - S3 archive: indefinite (Glacier after 1 year)
+```
 
 ---
 
-## 6. Access Control Matrix
+## 11. Access Control Matrix
 
 ### Feature Access by Role
 
 | Feature | `owner` | `successor_trustee` | `heir` |
 |---------|:-------:|:-------------------:|:------:|
 | **Net Worth Dashboard** | Full (all entities) | Full (trust entities) | Summary only |
+| **Entity Registry** | Full CRUD | Read-only | ❌ |
+| **Asset Registry** | Full CRUD | Read-only | Summary values only |
 | **Account Balances** | ✅ All accounts | ✅ Trust accounts | ❌ |
-| **Account Details / Plaid** | ✅ | Read-only | ❌ |
 | **Add/Edit Accounts** | ✅ | ❌ | ❌ |
-| **Asset Registry** | ✅ Full | ✅ Read-only | Summary values only |
-| **Add/Edit Assets** | ✅ | ❌ | ❌ |
-| **Real Estate Portfolio** | ✅ Full | ✅ Read-only | ❌ |
-| **Property Values** | ✅ | ✅ | ❌ |
-| **Entity Registry** | ✅ Full CRUD | ✅ Read-only | ❌ |
-| **Documents — Trust Docs** | ✅ | ✅ | ❌ |
-| **Documents — Tax Returns** | ✅ | ✅ | ❌ |
-| **Documents — K-1s** | ✅ | ✅ | ❌ |
+| **Plaid Link / Manage** | ✅ | ❌ | ❌ |
+| **Pending Migrations** | ✅ Review + confirm | ❌ | ❌ |
+| **Documents — All types** | ✅ | ✅ Read-only | ❌ |
 | **Document Upload** | ✅ | ✅ | ❌ |
 | **Document Search** | ✅ | ✅ | ❌ |
-| **Email Events** | ✅ All | ✅ Trust-related | ❌ |
-| **Capital Calls / Distributions** | ✅ | ✅ Read-only | ❌ |
-| **AI Chat — Full queries** | ✅ | ✅ | ❌ |
-| **AI Chat — Net worth queries** | ✅ | ✅ | Limited |
+| **Email Events** | ✅ | Read-only | ❌ |
+| **AI Assistant (Full)** | ✅ | ✅ | Limited (net worth only) |
+| **Notification Feed** | ✅ | ✅ | ✅ (own notifications) |
 | **Invite Users** | ✅ | ❌ | ❌ |
-| **Manage Roles** | ✅ | ❌ | ❌ |
 | **Audit Log** | ✅ | ❌ | ❌ |
 | **Admin / Job Triggers** | ✅ | ❌ | ❌ |
-| **Plaid Link / Management** | ✅ | ❌ | ❌ |
 
-### Row-Level Security Policy Summary
-
-RLS is enforced at the PostgreSQL level using a `current_user_role` session variable:
+### Row-Level Security: Role-Aware Pattern
 
 ```sql
--- Example: accounts table
+-- For tables where role matters (e.g., accounts: trustee sees trust accounts only)
+-- FastAPI sets session variables, policies use them
+
+-- Owner: all accounts in family
 CREATE POLICY accounts_owner ON accounts
     FOR ALL TO app_role
-    USING (true);  -- owners see all
+    USING (
+        family_id = current_setting('app.current_family_id')::uuid
+        AND current_setting('app.current_role') = 'owner'
+    );
 
+-- Trustee: only accounts linked to trust/llc entities
 CREATE POLICY accounts_trustee ON accounts
     FOR SELECT TO app_role
     USING (
-        entity_id IN (
-            SELECT id FROM entities
-            WHERE entity_type IN ('trust', 'llc')
+        family_id = current_setting('app.current_family_id')::uuid
+        AND current_setting('app.current_role') = 'successor_trustee'
+        AND (
+            entity_id IS NULL  -- if you want to be conservative, exclude
+            OR entity_id IN (
+                SELECT id FROM entities
+                WHERE type IN ('trust', 'llc', 'lp')
+                  AND family_id = current_setting('app.current_family_id')::uuid
+            )
         )
     );
-
--- FastAPI sets role context on each request:
--- SET LOCAL app.current_user_id = '<uuid>';
--- SET LOCAL app.current_role = 'successor_trustee';
 ```
 
 ---
 
-## 7. Phase 1 — Foundation
+## 12. Hermes Agent Layer
 
-> **Goal:** Working system with auth, entity registry, manual data entry, and document indexing.
-> **Estimated effort:** 6–8 weeks (1–2 developers)
+Hermes is the **background intelligence layer** — an open-source agent from Nous Research that runs custom skills to automate data ingestion. It replaces a custom LangChain worker.
 
-### Deliverables
+### Architecture
 
-#### 1.1 Project Bootstrap (Week 1)
-- [ ] Repository structure (monorepo: `/frontend`, `/backend`, `/infra`)
-- [ ] Docker Compose local dev environment
-- [ ] PostgreSQL with pgvector extension enabled
-- [ ] CI/CD pipeline skeleton (GitHub Actions)
-- [ ] AWS infrastructure baseline (Terraform):
-  - VPC, subnets, security groups
-  - RDS PostgreSQL (encrypted)
-  - S3 buckets (documents, raw emails)
-  - ECR repositories
-  - Secrets Manager setup
-- [ ] Database migrations framework (Alembic)
-- [ ] Initial schema (all tables above)
+```
+┌───────────────────────────────────────────────────────────────┐
+│  HERMES AGENT (ECS Fargate — separate task definition)        │
+│                                                               │
+│  Skills registered:                                           │
+│    - gmail_watcher      (Phase 3)                             │
+│    - drive_indexer      (Phase 2/3)                           │
+│    - plaid_sync_monitor (Phase 2)                             │
+│                                                               │
+│  Each skill:                                                  │
+│    1. Polls external API (Gmail / Drive / Plaid webhook)      │
+│    2. Processes data (extract, embed, classify)               │
+│    3. Calls Vault internal API to write results               │
+│    4. Vault service layer fires notifications                 │
+│                                                               │
+│  Auth to Vault API: HMAC-signed request header                │
+│    X-Internal-Signature: HMAC-SHA256(body, HMAC_SECRET)       │
+└───────────────────────────────────────────────────────────────┘
+```
 
-#### 1.2 Authentication (Week 2)
-- [ ] Google OAuth 2.0 integration (FastAPI)
-- [ ] TOTP MFA setup flow + QR code generation
-- [ ] Session management (secure httpOnly cookies)
-- [ ] User invite flow (email link)
-- [ ] Role assignment (owner seeds initial roles)
-- [ ] Audit log middleware (auto-logs all API calls)
-- [ ] Next.js auth wrapper + protected routes by role
+### Skill: drive_indexer
 
-#### 1.3 Entity Registry (Week 3)
-- [ ] Entity CRUD API (owner/trustee)
-- [ ] Nested entity ownership (LLC owned by Trust)
-- [ ] Entity list + detail views (Next.js)
-- [ ] Entity tagging (trust, LLC, fund)
+```
+Trigger: Google Drive push notification (webhook) OR cron poll (every 15 min fallback)
 
-#### 1.4 Manual Net Worth & Assets (Week 4)
-- [ ] Manual account creation + balance entry
-- [ ] Asset creation with valuations
-- [ ] Property creation (no live values yet)
-- [ ] Net worth calculation from manual data
-- [ ] Net worth dashboard (static, no live data)
-- [ ] Net worth history chart
+Steps:
+  1. Receive Drive change notification (file added/modified in finance folder)
+  2. Download file from Drive → upload to S3 (raw)
+  3. Submit to AWS Textract async job (for PDFs)
+  4. On Textract completion:
+     a. Extract text → chunk (500 tokens, 50-token overlap)
+     b. Generate embeddings via OpenAI text-embedding-3-small
+     c. POST /internal/documents/index with chunks + metadata
+  5. Vault stores document_chunks in pgvector
+  6. POST /internal/notifications → notify both users (document indexed)
+```
 
-#### 1.5 Google Drive Document Indexing (Weeks 5–6)
-- [ ] Google Drive API OAuth setup (service account)
-- [ ] Drive folder watch (push notifications via webhook)
-- [ ] File download + S3 upload pipeline
-- [ ] AWS Textract OCR integration
-  - Async job submission
-  - Result polling worker
-  - Text extraction storage (S3 + DB)
-- [ ] Document chunking strategy (500 tokens, 50-token overlap)
-- [ ] OpenAI text-embedding-3-small embedding generation
-- [ ] pgvector storage for chunks
-- [ ] Document list + search UI (Next.js)
-- [ ] Document viewer (signed S3 URL)
+### Skill: gmail_watcher (Phase 3)
 
-#### 1.6 Semantic Document Search (Week 7)
-- [ ] `/documents/search` endpoint with vector similarity
-- [ ] Hybrid search (keyword + vector) for better recall
-- [ ] Search UI with result highlighting
-- [ ] Document classification (rule-based + AI) for document_type
+```
+Trigger: Gmail push notification via Cloud Pub/Sub → Vault webhook → Hermes
 
-#### 1.7 Testing & Hardening (Week 8)
-- [ ] Unit tests for auth, entity, document endpoints
-- [ ] Integration tests for Drive webhook + OCR pipeline
-- [ ] Penetration test checklist (OWASP Top 10)
-- [ ] Load test document ingestion pipeline
-- [ ] Audit log review
+Steps:
+  1. Receive notification: new message in monitored Gmail account
+  2. Fetch email body + attachments via Gmail API
+  3. Store raw email in S3
+  4. Run extraction chain:
+     - Capital call? → extract: fund_name, amount, due_date
+     - Distribution? → extract: fund_name, amount, effective_date
+     - K-1 notice? → extract: fund_name, tax_year
+     - Retitling notice? → extract: account_name, from_entity, to_entity
+  5. POST /internal/email-events with extracted_data
+  6. If retitling detected → POST /internal/pending-migrations
+  7. POST /internal/notifications → notify both users
+```
 
-### Phase 1 Success Criteria
-- All family members can log in with Google + TOTP MFA
-- Entity registry reflects full ownership structure
-- Manual net worth dashboard shows accurate total
-- All Google Drive documents indexed and searchable
-- Audit log captures every action
+### Skill: plaid_sync_monitor
 
----
+```
+Trigger: Plaid webhook (DEFAULT_UPDATE, ITEM_ERROR, etc.) → Vault /plaid/webhook
+  → Vault enqueues task → Hermes picks up
 
-## 8. Phase 2 — Live Data
+Steps:
+  1. Receive Plaid webhook payload
+  2. Fetch updated balances for affected accounts
+  3. Compare vs stored entity_id / account metadata
+  4. If metadata mismatch → POST /internal/pending-migrations
+  5. POST /internal/notifications (if anomaly)
+  6. Update account balances in DB
+```
 
-> **Goal:** Real-time bank/brokerage balances, live real estate valuations, live net worth dashboard.
-> **Estimated effort:** 4–6 weeks
+### Hermes Internal API Auth
 
-### Deliverables
-
-#### 2.1 Plaid Integration (Weeks 1–3)
-- [ ] Plaid Link UI (Next.js embedded widget)
-- [ ] Link token creation + public token exchange
-- [ ] Account sync (accounts + balances)
-- [ ] Plaid webhook handler (TRANSACTIONS_REMOVED, DEFAULT_UPDATE, etc.)
-- [ ] Background sync worker (nightly balance refresh)
-- [ ] Plaid access token rotation + error handling
-- [ ] Plaid Item health monitoring (re-auth alerts)
-- [ ] Balance history time-series storage
-
-#### 2.2 Real Estate Valuations (Weeks 3–4)
-- [ ] ATTOM Data API integration
-  - Property AVM (automated valuation model)
-  - Property detail enrichment (sqft, beds, baths) on first add
-- [ ] Valuation refresh worker (weekly schedule)
-- [ ] Property detail pages with valuation history chart
-- [ ] Manual override for valuation (if ATTOM is wrong)
-
-#### 2.3 Live Net Worth Dashboard (Weeks 4–5)
-- [ ] Real-time net worth from live account balances
-- [ ] Asset class breakdown: Cash, Investments, Real Estate, Private, Other
-- [ ] Entity-level drill-down
-- [ ] Net worth trend chart (historical snapshots)
-- [ ] Daily snapshot automation (cron job)
-- [ ] Dashboard refresh (polling or WebSocket)
-
-#### 2.4 Data Quality & Reconciliation (Week 6)
-- [ ] Plaid balance vs manual balance reconciliation alerts
-- [ ] Stale data indicators (last-fetched timestamps)
-- [ ] Data source confidence indicators
-- [ ] Missing data alerts (accounts not synced, properties without valuation)
-
-### Phase 2 Success Criteria
-- Bank and brokerage balances update automatically
-- Real estate values update weekly from ATTOM
-- Net worth dashboard reflects live data with <5 minute lag
-- Historical net worth chart shows 12+ months of data
+```python
+# Vault middleware for internal routes
+class InternalAuthMiddleware:
+    async def __call__(self, request: Request, call_next):
+        if request.url.path.startswith('/api/v1/internal/'):
+            body = await request.body()
+            signature = request.headers.get('X-Internal-Signature')
+            expected = hmac.new(
+                INTERNAL_HMAC_SECRET.encode(),
+                body,
+                hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(signature or '', expected):
+                raise HTTPException(status_code=401, detail='Invalid internal signature')
+        return await call_next(request)
+```
 
 ---
 
-## 9. Phase 3 — Intelligence
+## 13. ChatGPT Custom GPT Integration
 
-> **Goal:** Automated Gmail parsing, AI extraction from financial documents, proactive alerts.
-> **Estimated effort:** 5–7 weeks
+The AI assistant is a **ChatGPT Custom GPT** configured with Actions against the Vault OpenAPI spec. The user uses their own OpenAI account — no API key costs on the Vault side for assistant queries.
 
-### Deliverables
+### Architecture
 
-#### 3.1 Gmail Integration (Weeks 1–2)
-- [ ] Gmail API OAuth setup (service account with domain delegation OR user OAuth)
-- [ ] Gmail push notification setup (Pub/Sub topic → webhook)
-- [ ] Email ingestion pipeline:
-  - Fetch message body + attachments
-  - Store raw email in S3
-  - Store attachments → trigger OCR pipeline
-- [ ] Email deduplication (gmail_message_id)
+```
+User → ChatGPT.com (Custom GPT)
+  → GPT reads system prompt: "You are the FamilyVault assistant for [user_name]..."
+  → User asks: "What's our total net worth?"
+  → GPT invokes Action: GET /api/v1/gpt/net-worth
+  → Vault FastAPI authenticates via OAuth 2.0 JWT (family_id scoped)
+  → Returns: { net_worth: 4200000, breakdown: {...} }
+  → GPT synthesizes: "Your family's total net worth is $4.2M..."
 
-#### 3.2 AI Email Event Extraction (Weeks 2–4)
-- [ ] LangChain extraction chain for email events:
-  - Capital call detection (fund name, amount, due date)
-  - Distribution notice (fund name, amount, date)
-  - K-1 availability (entity, tax year)
-  - Fund update / NAV update parsing
-  - Property management report parsing (rents received, expenses)
-- [ ] Entity matching (extracted fund name → entities table)
-- [ ] Confidence scoring for extractions
-- [ ] Email event list + action queue UI
-- [ ] Manual correction interface (if AI extraction is wrong)
+Embed in Vault dashboard:
+  → <iframe src="https://chatgpt.com/g/g-XXXXXX" />
+  → Or link to GPT in sidebar navigation
+```
 
-#### 3.3 AI Document Intelligence Enhancement (Weeks 4–5)
-- [ ] K-1 structured extraction (partner share of income, credits, deductions)
-- [ ] Tax return extraction (AGI, total tax, key schedules)
-- [ ] Capital account statement parsing
-- [ ] Fund statement NAV + distribution extraction
-- [ ] Extracted field storage + entity linking
-- [ ] Document type auto-classification (LangChain + document content)
+### OAuth Flow for GPT Actions
 
-#### 3.4 Alert System (Weeks 5–6)
-- [ ] Alert rules engine:
-  - Capital call due in N days
-  - Distribution received (new EmailEvent)
-  - Plaid account re-auth required
-  - Document indexing failed
-  - Net worth change > X% in 30 days
-- [ ] Alert delivery: in-app notification + AWS SES email
-- [ ] Alert history + acknowledgment UI
-- [ ] Per-user alert preferences
+```
+1. User opens Custom GPT (first time)
+2. GPT Actions requires authorization → redirect to Vault OAuth endpoint
+   GET /auth/gpt/authorize?client_id=...&redirect_uri=...&scope=read:vault
+3. User authenticates with Google OAuth + TOTP in Vault
+4. Vault issues JWT scoped to: { family_id, user_id, scope: ['read:vault'] }
+5. JWT returned to GPT as Bearer token
+6. All subsequent GPT Action calls: Authorization: Bearer <jwt>
+7. Vault validates JWT, extracts family_id, applies RLS
+```
 
-#### 3.5 Private Investment Registry AI Enhancement (Week 7)
-- [ ] Auto-extract entity details from documents (fund agreements, operating agreements)
-- [ ] Auto-link email events to entities
-- [ ] Suggested entity creates from document/email extraction (owner approval flow)
-- [ ] Investment timeline (capital calls + distributions over time, per entity)
+### GPT System Prompt Template
 
-### Phase 3 Success Criteria
-- Capital calls auto-detected from Gmail within 5 minutes of email arrival
-- K-1s auto-classified and key fields extracted on Google Drive sync
-- Alert delivered when action is required
-- Private investment registry enriched from document content
+```
+You are FamilyVault Assistant, a knowledgeable financial assistant
+for the [FAMILY_NAME] family. You have access to their financial data
+through the FamilyVault API.
 
----
+You can answer questions about:
+- Total net worth and historical trends
+- Entity structure (Family Trust, LLCs, LPs)
+- Bank and brokerage account balances
+- Asset values and liabilities
+- Documents (K-1s, trust docs, fund statements)
+- Pending ownership changes and notifications
 
-## 10. Phase 4 — Assistant
+You should be accurate, concise, and use appropriate financial terminology.
+Always cite the data source and date when providing numbers.
+Never speculate about future values. If data is unavailable, say so.
 
-> **Goal:** Natural language AI assistant, successor/heir tailored views, full system polish.
-> **Estimated effort:** 4–6 weeks
+Current date: [injected at query time]
+User: [user_name], Role: [role]
+```
 
-### Deliverables
+### Available Actions (OpenAPI Spec)
 
-#### 4.1 LangChain Agent Architecture (Weeks 1–2)
-- [ ] LangChain agent with tools:
-  - `get_net_worth` — current total + breakdown
-  - `get_entity_details` — entity + accounts + assets
-  - `get_account_balances` — specific account(s) history
-  - `get_property_values` — RE portfolio + valuations
-  - `get_email_events` — recent capital calls / distributions / K-1s
-  - `search_documents` — semantic search over document corpus
-  - `get_asset_history` — asset valuation over time
-  - `calculate_allocation` — asset class allocation percentages
-- [ ] System prompt with user context (name, role, entity access list)
-- [ ] Conversation memory (windowed, stored in DB or Redis)
-- [ ] Role-gated tool access (heir sees subset of tools)
-- [ ] Server-sent events (SSE) for streaming responses
+```yaml
+openapi: 3.1.0
+info:
+  title: FamilyVault GPT Actions
+  version: 1.0.0
+paths:
+  /api/v1/gpt/net-worth:
+    get:
+      operationId: getNetWorth
+      summary: Get current net worth with breakdown
+      responses: ...
+  /api/v1/gpt/entities:
+    get:
+      operationId: listEntities
+      summary: List entities with hierarchy and asset counts
+      responses: ...
+  /api/v1/gpt/accounts:
+    get:
+      operationId: listAccounts
+      summary: List accounts with current balances
+      responses: ...
+  /api/v1/gpt/assets:
+    get:
+      operationId: listAssets
+      summary: List assets with values and liabilities
+      responses: ...
+  /api/v1/gpt/documents/search:
+    post:
+      operationId: searchDocuments
+      summary: Semantic search over indexed documents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query: { type: string }
+                entity_id: { type: string }
+                doc_type: { type: string }
+      responses: ...
+  /api/v1/gpt/notifications:
+    get:
+      operationId: getNotifications
+      summary: Get recent unread notifications
+      responses: ...
+  /api/v1/gpt/pending-migrations:
+    get:
+      operationId: getPendingMigrations
+      summary: Get pending ownership review items
+      responses: ...
+```
 
-#### 4.2 Chat Interface (Weeks 2–3)
-- [ ] Next.js chat UI (streaming, message history)
-- [ ] Source citations (documents, accounts referenced in answer)
-- [ ] Suggested queries (context-aware quick starts)
-- [ ] Follow-up question suggestions
-- [ ] Copy / export chat response
-- [ ] Chat audit log (queries + responses)
+### Sample Queries the GPT Should Handle
 
-#### 4.3 Sample Queries the Assistant Should Handle
 ```
 "What is our total net worth as of today?"
 "How much cash do we have across all accounts?"
-"Which capital calls are due in the next 30 days?"
-"What distributions did we receive in Q1 2026?"
-"What is our real estate portfolio worth?"
-"When was the last time ABC Fund sent a K-1?"
-"Summarize the trust operating agreement."
-"What is our largest private investment by current value?"
-"Show me the net worth trend over the last 2 years."
-"Which entities had distributions this year?"
+"What's in LLC #1?"
+"Show me the net worth breakdown by entity"
+"What capital calls are pending?"
+"When was the last distribution from ABC Fund?"
+"Find the operating agreement for LLC #1"
+"What's our total real estate equity?"
+"Which accounts still need to be assigned to an entity?"
+"Show me the net worth trend over the last 12 months"
+"Are there any pending ownership changes I need to review?"
+"What's our 401k balance?"
 ```
-
-#### 4.4 Successor Trustee View (Week 4)
-- [ ] Tailored dashboard (trust assets only)
-- [ ] Trust document quick-access
-- [ ] Entity ownership map (trust → LLCs → assets)
-- [ ] Key contacts and trustee obligations checklist (manual)
-- [ ] Simplified AI queries (trust-scoped context)
-
-#### 4.5 Heir View (Week 4)
-- [ ] Single-page net worth summary (no entity detail)
-- [ ] Estate value estimate (simplified)
-- [ ] Key documents list (wills, trust summary — if owner grants)
-- [ ] No financial account or entity detail access
-- [ ] Limited AI chat (net worth questions only)
-
-#### 4.6 System Polish & Performance (Weeks 5–6)
-- [ ] Query response time optimization (caching layer for net worth, common queries)
-- [ ] Document search result ranking tuning
-- [ ] AI tool call latency optimization
-- [ ] Mobile-responsive UI audit
-- [ ] Export to PDF (net worth report, entity summary)
-- [ ] Comprehensive user guide (for successor trustees)
-- [ ] Full end-to-end regression test suite
-- [ ] Security review + penetration test
-
-### Phase 4 Success Criteria
-- Natural language queries return accurate answers in <10 seconds
-- All 10 sample queries answered correctly from live data
-- Successor trustee can independently navigate trust portfolio
-- Heir view shows net worth summary without exposing sensitive detail
-- System passes security review
 
 ---
 
-## 11. Infrastructure & Deployment
+## 14. Outbound Sharing Layer (Future — v0.2+)
+
+The data model supports a future sharing layer. Architecture is designed now so it doesn't require schema changes.
+
+### Concept
+
+```
+Owner creates a share link:
+  POST /share-links
+  {
+    "recipient_name": "John Smith (CPA)",
+    "scope": ["net_worth", "documents:tax_returns"],
+    "entity_filter": ["<trust_id>"],
+    "expires_at": "2026-12-31",
+    "password_protected": true
+  }
+
+  → Returns: { url: "https://vault.family.com/share/abc123xyz", token: "..." }
+
+Recipient opens link → Vault renders scoped read-only view
+  → No auth required (share token acts as credential)
+  → Scope limits what data is visible
+  → All access logged to audit_log (actor: share_token)
+  → Expired tokens are rejected
+```
+
+### Report Generation
+
+```
+POST /reports/generate
+{
+  "report_type": "net_worth_statement",
+  "as_of_date": "2026-05-01",
+  "include_entities": ["<trust_id>", "<llc1_id>"],
+  "format": "pdf"
+}
+
+Report types:
+  - net_worth_statement     → Total NW, entity breakdown, asset class breakdown
+  - tax_prep_package        → Entity list, account list, K-1s, cost basis summary
+  - trust_asset_inventory   → All assets under trust with valuations
+  - investment_position_report → Private investments, capital calls, distributions
+
+AI + Vault data → PDF report
+  → GPT drafts narrative sections
+  → Vault data populates tables/charts
+  → PDF generated (WeasyPrint or Playwright headless)
+  → Stored in S3, link returned
+```
+
+### Share Target Types
+
+| Recipient | Report Type | Scope |
+|-----------|-------------|-------|
+| CPA | Tax Prep Package | Entities, K-1s, accounts, tax docs |
+| Financial Advisor | Net Worth Statement | NW breakdown, investment positions |
+| Successor Trustee | Trust Asset Inventory | Trust entities, assets, documents |
+| Fund Manager | Investment Position Report | Specific fund positions |
+| Investment Partner | Net Worth Statement (summary) | Scoped NW only |
+
+### Schema (Deferred — design only)
+
+```sql
+-- share_links (id, family_id, created_by, recipient_name, scope jsonb,
+--              entity_filter uuid[], password_hash, token_hash,
+--              expires_at, max_views, view_count, created_at, revoked_at)
+
+-- share_link_access_log (id, share_link_id, ip_address, accessed_at, action)
+
+-- reports (id, family_id, report_type, as_of_date, s3_key, created_by,
+--          share_link_id, created_at)
+```
+
+---
+
+## 15. Phase 1 — Foundation + Entity & Asset Registry
+
+> **Goal:** Working authentication, entity/asset registry, manual net worth dashboard, basic document indexing.
+> **Timeline:** Weeks 1–2 (MVP Sprint 1)
+
+### 15.1 Bootstrap
+
+- [ ] Monorepo structure: `/frontend` (Next.js), `/backend` (FastAPI), `/agent` (Hermes), `/infra` (Terraform)
+- [ ] Docker Compose local dev environment (Postgres + pgvector, FastAPI, Next.js)
+- [ ] Database migrations framework (Alembic)
+- [ ] Initial schema: all tables from Section 6
+- [ ] RLS policies enabled and tested
+- [ ] CI pipeline skeleton (GitHub Actions: lint, typecheck, test)
+
+### 15.2 Authentication
+
+- [ ] Google OAuth 2.0 (FastAPI + httpx)
+- [ ] TOTP MFA: setup flow, QR code generation (pyotp), verify endpoint
+- [ ] Session management: httpOnly + Secure + SameSite=Strict cookies
+- [ ] Two users seeded (owner role for both)
+- [ ] Next.js auth wrapper + protected routes
+
+### 15.3 Entity Registry
+
+- [ ] Entity CRUD API with parent/child relationships
+- [ ] Entity types: trust | llc | lp | personal | joint
+- [ ] Entity tree UI: expandable tree with child entities nested
+- [ ] Entity detail page: linked assets, linked accounts, net worth
+- [ ] Entity ownership % entry (entity_ownership table)
+
+### 15.4 Asset Registry
+
+- [ ] Asset CRUD API
+- [ ] Ownership type: entity_held | joint_personal | sole_personal
+- [ ] Sole owner assignment (sole_owner_id)
+- [ ] Joint ownership splits (asset_joint_ownership)
+- [ ] Manual valuation entry (asset_valuations)
+- [ ] Liability entry (liability_balance on assets)
+- [ ] Asset equity display: value − liability
+- [ ] Asset list UI with entity filter + ownership type filter
+- [ ] Asset detail page with valuation history chart
+
+### 15.5 Net Worth Dashboard
+
+- [ ] Net worth calculation: sum of asset equity + account balances
+- [ ] Roll-up by entity (recursive: includes child entities)
+- [ ] Roll-up by ownership type
+- [ ] Total family net worth
+- [ ] Weekly auto-snapshot (cron job)
+- [ ] Net worth history chart (recharts)
+- [ ] Dashboard: summary card, entity tree with assets nested, asset details
+
+### 15.6 Scaffolding (used in later sprints)
+
+- [ ] `pending_migrations` table + stub API endpoints
+- [ ] `notifications` table + feed UI (empty state, polling)
+- [ ] `audit_log` table + middleware (auto-log all API writes)
+
+### Phase 1 Success Criteria
+
+- Both users can log in with Google OAuth + TOTP MFA
+- Full entity hierarchy created (trust → LLC → assets)
+- Assets created with ownership types, valuations, liabilities
+- Net worth dashboard shows accurate total with entity drill-down
+- Net worth snapshot taken weekly automatically
+- Audit log captures all writes
+
+---
+
+## 16. Phase 2 — Live Data (Plaid)
+
+> **Goal:** Real-time bank/brokerage/retirement balances feeding live net worth dashboard, Plaid-based migration detection.
+> **Timeline:** Weeks 3–4 (MVP Sprint 2)
+
+### 16.1 Plaid Integration
+
+- [ ] Plaid Link UI embedded in Next.js (react-plaid-link)
+- [ ] `POST /plaid/link-token` → create link token
+- [ ] `POST /plaid/exchange` → exchange public token → store encrypted access token
+- [ ] Auto-create accounts in Vault from Plaid connection
+  - Account type/subtype mapped to Vault account types
+  - Default ownership_type: `sole_personal` (user assigns entity later)
+- [ ] Account entity assignment UI (assign account to entity after linking)
+- [ ] Plaid webhook handler: DEFAULT_UPDATE, ITEM_ERROR, PENDING_EXPIRATION
+
+### 16.2 Balance Sync
+
+- [ ] Background sync: nightly balance refresh via Hermes plaid_sync_monitor
+- [ ] On sync: update `accounts.current_balance`, insert `account_balance_history`
+- [ ] Net worth dashboard auto-updates after sync
+- [ ] Last synced timestamp displayed per account
+- [ ] Stale indicator if balance > 24h old
+
+### 16.3 Migration Detection
+
+- [ ] Hermes plaid_sync_monitor detects account metadata changes (name, institution)
+- [ ] Compare vs stored entity_id → if mismatch, create `pending_migration`
+- [ ] Pending Reviews card on dashboard
+- [ ] `POST /pending-migrations/{id}/confirm` → atomic migration apply
+- [ ] `POST /pending-migrations/{id}/reject`
+- [ ] Notification sent to both users on detection and confirmation
+
+### 16.4 Account Coverage (MVP)
+
+| Account Type | Plaid Product | Notes |
+|---|---|---|
+| Checking / Savings | Auth + Balance | Most banks |
+| Brokerage (taxable) | Investments | Fidelity, Schwab, etc. |
+| Retirement (401k, IRA) | Investments | Same as brokerage |
+| Credit cards | Liabilities | Balance as negative |
+
+### Phase 2 Success Criteria
+
+- All bank, brokerage, and retirement accounts linked via Plaid
+- Live balance sync running nightly (and on Plaid webhook)
+- Net worth dashboard shows live data
+- Plaid metadata changes surface as pending migration items
+- User can confirm/reject ownership migrations from dashboard
+
+---
+
+## 17. Phase 3 — Intelligence (Hermes + Gmail)
+
+> **Goal:** Automated email parsing for capital calls/distributions, Google Drive document indexing with semantic search.
+> **Timeline:** Post-MVP (v0.2)
+
+### 17.1 Google Drive Indexing (Hermes drive_indexer skill)
+
+- [ ] Google Drive OAuth (service account or user OAuth)
+- [ ] Register Drive folder watch (push notifications)
+- [ ] Fallback: cron poll every 15 minutes for changes
+- [ ] File download → S3 upload pipeline
+- [ ] AWS Textract OCR (async job → poll → store)
+- [ ] Document chunking (500 tokens, 50-token overlap)
+- [ ] OpenAI text-embedding-3-small embeddings
+- [ ] pgvector storage + ivfflat index
+- [ ] Document semantic search endpoint
+- [ ] Manual document tagging UI (entity, doc_type)
+- [ ] Drive webhook: `POST /drive/webhook`
+
+### 17.2 Gmail Parsing (Hermes gmail_watcher skill)
+
+- [ ] Gmail API OAuth (user OAuth recommended for family accounts)
+- [ ] Gmail push via Cloud Pub/Sub → `POST /gmail/webhook`
+- [ ] Hermes gmail_watcher picks up webhook events
+- [ ] Email extraction:
+  - Capital call (fund name, amount, due date)
+  - Distribution (fund name, amount, date)
+  - K-1 availability (fund name, tax year)
+  - Account retitling notice
+- [ ] Entity matching (extracted fund name → entities table fuzzy match)
+- [ ] Email event list UI with action queue
+- [ ] Manual correction interface for AI extraction errors
+- [ ] Capital call / distribution feeds notification system
+
+### 17.3 Alert Enhancements
+
+- [ ] Capital call due in < 14 days → alert
+- [ ] Distribution received → alert
+- [ ] New K-1 available → alert
+- [ ] Asset valuation > 90 days stale → alert
+- [ ] Email delivery via AWS SES (as secondary channel in addition to in-app)
+
+### Phase 3 Success Criteria
+
+- Capital calls auto-detected from Gmail within 5 minutes of email arrival
+- Google Drive documents indexed and semantically searchable
+- Alert delivered when capital call action required
+- K-1s auto-classified on Drive sync
+
+---
+
+## 18. Phase 4 — Advisor Portal + Multi-Tenant Signup
+
+> **Goal:** Multi-tenant signup flow, advisor portal, report generation, external sharing.
+> **Timeline:** v0.3+
+
+### 18.1 Multi-Tenant Signup
+
+- [ ] Public signup flow (family creates own Vault account)
+- [ ] Plan tier selection: personal | family_trust | advisor
+- [ ] Stripe billing integration per plan tier
+- [ ] Domain-verified Google OAuth (families use their own Google accounts)
+- [ ] Admin dashboard (FamilyVault ops): view all families, plan tiers, usage
+
+### 18.2 Advisor Portal
+
+- [ ] Advisor account type: manages multiple family clients
+- [ ] Client list view: each client = separate family_id
+- [ ] Advisor can be granted read access to specific client families
+- [ ] Cross-family aggregation view (advisor's book of business net worth)
+- [ ] Client report generation + delivery
+
+### 18.3 Report Generation + Sharing
+
+- [ ] PDF report generation (WeasyPrint or Playwright)
+- [ ] Share link creation with scope + expiry
+- [ ] Guest portal (read-only scoped view via share token)
+- [ ] Delivery audit trail
+
+### 18.4 Heir / Trustee Access Views
+
+- [ ] Successor trustee tailored dashboard
+- [ ] Heir curated view (NW summary, no entity detail)
+- [ ] Invite flow for non-owner roles
+
+---
+
+## 19. Infrastructure & Deployment
 
 ### AWS Service Inventory
 
 | Service | Purpose | Notes |
 |---------|---------|-------|
-| ECS Fargate | Run Next.js, FastAPI, Workers | No EC2 to manage |
-| RDS PostgreSQL | Primary database | Multi-AZ for HA |
-| S3 | Document + email storage | Versioning + encryption |
-| ECR | Container registry | Image scanning enabled |
+| ECS Fargate | Next.js, FastAPI, Hermes Agent | Separate task defs |
+| RDS PostgreSQL | Primary database | Multi-AZ, encrypted, pgvector |
+| S3 | Documents, OCR output, email bodies | Versioning + SSE-KMS |
+| ECR | Container registry | Image scanning on push |
 | ALB | Load balancer + SSL termination | |
-| CloudFront | CDN for Next.js static assets | |
-| Secrets Manager | API keys + credentials | Auto-rotation where supported |
-| SES | Outbound email (alerts) | |
-| CloudWatch | Logs + metrics + alarms | |
-| SNS | Gmail push notification relay | |
-| Textract | OCR | Async jobs |
-| VPC + NAT Gateway | Network isolation | |
-| WAF | Web application firewall | |
+| CloudFront | CDN for static assets | |
+| Secrets Manager | All secrets + credentials | |
+| SES | Alert emails + report delivery | |
+| CloudWatch | Logs, metrics, alarms | 90-day retention |
+| SNS | Gmail Pub/Sub relay | |
+| Textract | OCR (async) | Phase 3 |
+| VPC + NAT Gateway | Network isolation + controlled egress | |
+| WAF | Rate limiting, geo-restrict, bot protection | |
 | KMS | Encryption key management | |
 
-### Terraform Module Structure
+### Monorepo Structure
 
 ```
-infra/
-├── modules/
-│   ├── vpc/
-│   ├── rds/
-│   ├── ecs-service/
-│   ├── s3-bucket/
-│   ├── alb/
-│   ├── cloudfront/
-│   └── secrets/
-├── environments/
-│   ├── dev/
-│   └── prod/
-└── main.tf
+familyvault/
+├── frontend/              # Next.js 14
+│   ├── app/               # App router pages
+│   ├── components/        # UI components (ShadCN base)
+│   ├── lib/               # API client, hooks
+│   └── public/
+├── backend/               # FastAPI
+│   ├── api/               # Route handlers
+│   ├── models/            # SQLAlchemy models
+│   ├── schemas/           # Pydantic schemas
+│   ├── services/          # Business logic
+│   ├── middleware/        # Auth, tenant context, audit
+│   ├── migrations/        # Alembic
+│   └── tests/
+├── agent/                 # Hermes Agent
+│   ├── skills/
+│   │   ├── gmail_watcher/
+│   │   ├── drive_indexer/
+│   │   └── plaid_sync_monitor/
+│   └── main.py
+├── infra/                 # Terraform
+│   ├── modules/
+│   │   ├── vpc/
+│   │   ├── rds/
+│   │   ├── ecs-service/
+│   │   ├── s3-bucket/
+│   │   ├── alb/
+│   │   └── secrets/
+│   ├── environments/
+│   │   ├── dev/
+│   │   └── prod/
+│   └── main.tf
+├── docker-compose.yml     # Local dev
+└── .github/
+    └── workflows/
+        └── ci.yml
 ```
+
+### ECS Task Definitions
+
+```
+Service: familyvault-frontend
+  Image: ECR/familyvault-frontend:latest
+  CPU: 512  Memory: 1024
+  Port: 3000
+  Health check: GET / → 200
+
+Service: familyvault-backend
+  Image: ECR/familyvault-backend:latest
+  CPU: 1024  Memory: 2048
+  Port: 8000
+  Health check: GET /health → 200
+  Env (from Secrets Manager):
+    DATABASE_URL, GOOGLE_OAUTH_*, PLAID_*, OPENAI_API_KEY,
+    APP_ENCRYPTION_MASTER_KEY, INTERNAL_HMAC_SECRET
+
+Service: familyvault-agent (Hermes)
+  Image: ECR/familyvault-agent:latest
+  CPU: 512  Memory: 1024
+  No port (outbound only)
+  Env (from Secrets Manager):
+    VAULT_API_URL, INTERNAL_HMAC_SECRET, GMAIL_CREDENTIALS,
+    GOOGLE_DRIVE_CREDENTIALS, PLAID_*
+```
+
+### CI/CD Pipeline
+
+```
+On push to main:
+  1. Lint + typecheck (Next.js + FastAPI)
+  2. Unit tests (pytest + jest)
+  3. Integration tests (Testcontainers for DB)
+  4. Docker build + push to ECR (all 3 services)
+  5. Terraform plan (dev)
+  6. Deploy to dev (ECS rolling update)
+  7. Smoke tests vs dev
+  8. ── Manual approval gate ──
+  9. Terraform plan (prod)
+  10. Deploy to prod (blue/green ECS)
+  11. Post-deploy health checks
+```
+
+### Background Worker Schedule
+
+| Job | Trigger | Schedule |
+|-----|---------|----------|
+| Plaid balance sync | Hermes cron | Nightly 2 AM PT |
+| Net worth snapshot | FastAPI cron | Nightly 3 AM PT |
+| Valuation staleness check | FastAPI cron | Weekly Monday 6 AM |
+| Drive change poll (fallback) | Hermes cron | Every 15 min |
+| Gmail subscription renewal | Hermes cron | Every 6 days |
+| Pending migration expiry | FastAPI cron | Daily |
+| Document embedding retry | Hermes cron | Every 30 min |
 
 ### Environment Strategy
 
 | Environment | Purpose | Scale |
 |-------------|---------|-------|
-| `local` | Development (Docker Compose) | Single machine |
-| `dev` | Integration testing (AWS) | Minimal, spot instances |
-| `prod` | Production | Multi-AZ, reserved capacity |
-
-### CI/CD Pipeline
-
-```
-Push to main branch:
-  1. Lint + Type check (Next.js + FastAPI)
-  2. Unit tests
-  3. Integration tests (Testcontainers for DB)
-  4. Docker build + push to ECR
-  5. Terraform plan (dev)
-  6. Deploy to dev (ECS rolling update)
-  7. Smoke tests against dev
-  8. Manual approval gate
-  9. Terraform plan (prod)
-  10. Deploy to prod (blue/green)
-  11. Post-deploy health checks
-```
-
-### Background Worker Jobs
-
-| Job | Trigger | Frequency |
-|-----|---------|-----------|
-| Plaid balance sync | Cron | Nightly 2 AM |
-| ATTOM property valuation refresh | Cron | Weekly Sunday |
-| Net worth snapshot | Cron | Nightly 3 AM |
-| Document embedding retry | Cron | Every 30 min |
-| Email event extraction retry | Cron | Every 15 min |
-| Gmail push subscription renewal | Cron | Every 6 days (7-day TTL) |
-| Drive change poll (fallback) | Cron | Every 15 min |
-| Plaid webhook health check | Cron | Daily |
+| `local` | Development (Docker Compose) | Single machine, Postgres in container |
+| `dev` | AWS integration testing | Minimal Fargate, shared RDS |
+| `prod` | Production | Multi-AZ RDS, reserved Fargate capacity |
 
 ---
 
-## 12. Operational Considerations
+## 20. Operational Considerations
 
 ### Data Volume Estimates
 
-| Data Type | Estimate | Growth |
-|-----------|----------|--------|
-| Documents | ~500 initial, 50/year | Low |
-| Document chunks | ~50k initial, 5k/year | Low |
-| Account balances | ~10 accounts × 365 days | ~4k rows/year |
-| Email events | ~200/year | Low |
-| Property valuations | ~10 properties × 52 weeks | ~520/year |
-| Net worth snapshots | 365/year | Low |
-| Audit log entries | ~10k/year | Medium |
+| Data Type | Initial | Annual Growth |
+|-----------|---------|---------------|
+| Entities | ~20 | ~2/year |
+| Assets | ~30 | ~5/year |
+| Accounts | ~15 | ~2/year |
+| Account balance history | ~15 × 365 | ~5,500/year |
+| Net worth snapshots | 52 (weekly) | ~52/year |
+| Documents | ~200 initial | ~50/year |
+| Document chunks | ~20,000 initial | ~5,000/year |
+| Email events (Phase 3) | — | ~300/year |
+| Notifications | — | ~500/year |
+| Audit log entries | — | ~15,000/year |
+| Pending migrations | — | ~20/year |
 
-RDS instance sizing: `db.t4g.medium` for dev, `db.t4g.large` for prod (adequate for years).
-
-### Monitoring & Alerting
-
-- **Application health:** `/admin/health` endpoint polled by CloudWatch
-- **Worker job failures:** CloudWatch alarm on ECS task exit code ≠ 0
-- **Plaid item degraded:** Detected in sync, alert to owner via SES
-- **OpenAI API errors:** Logged + alerted if sustained failure
-- **Textract failures:** Tracked in `ocr_status`, retried automatically
-- **Database connection pool:** CloudWatch RDS metrics
+RDS sizing: `db.t4g.medium` (dev), `db.t4g.large` (prod) — adequate for 5+ years at this scale.
 
 ### Cost Estimates (Monthly, Prod)
 
-| Service | Est. Monthly Cost |
-|---------|------------------|
+| Service | Est. Monthly |
+|---------|-------------|
 | RDS t4g.large (Multi-AZ) | ~$120 |
 | ECS Fargate (3 services) | ~$80 |
 | S3 (storage + requests) | ~$10 |
 | ALB + CloudFront | ~$25 |
-| Textract (OCR) | ~$5 (low volume) |
-| OpenAI API (embeddings + GPT-4) | ~$50–200 (usage-dependent) |
-| Plaid (development tier) | Free (production: check pricing) |
-| ATTOM Data API | Per-contract |
+| Textract (OCR, Phase 3) | ~$5 |
+| OpenAI API (embeddings only) | ~$5–20 |
+| Plaid (dev tier → production) | ~$0–200 (check pricing) |
 | Secrets Manager | ~$5 |
 | CloudWatch + misc | ~$20 |
-| **Total estimate** | **~$315–500/month** |
+| **Total estimate** | **~$270–490/month** |
 
-### Disaster Recovery Playbook (Outline)
+Note: ChatGPT Custom GPT queries use the user's own OpenAI subscription — no API cost to Vault.
 
-1. **Database failure:** RDS Multi-AZ auto-failover (<60 seconds)
-2. **ECS task failure:** ECS service restarts task automatically
-3. **Full region failure:** Restore from RDS snapshot to new region, update DNS
-4. **Data corruption:** RDS point-in-time recovery, S3 versioning rollback
-5. **Secrets compromised:** Rotate in Secrets Manager, redeploy ECS (picks up new secrets)
-6. **Plaid access token invalidated:** Re-link in UI (owner flow)
+### Monitoring & Alerting
+
+- **Health endpoint:** `GET /health` polled by ALB target group health check
+- **Worker failures:** CloudWatch alarm on ECS task exit code ≠ 0
+- **Plaid item degraded:** Detected in sync, notification + SES email to owner
+- **Database:** RDS CloudWatch metrics (CPU, connections, storage)
+- **Application errors:** CloudWatch Logs + Insights queries on ERROR/CRITICAL
+- **Audit anomaly:** > 100 audit_log entries in 10 minutes for single user → alert
+
+### Backup & Recovery
+
+| Scenario | Recovery | RTO |
+|----------|----------|-----|
+| RDS instance failure | Multi-AZ auto-failover | < 60 seconds |
+| ECS task crash | ECS service auto-restart | < 2 minutes |
+| Data corruption | RDS point-in-time recovery | < 4 hours |
+| Region failure | Restore snapshot to new region | < 8 hours |
+| Secrets compromised | Rotate in Secrets Manager → ECS redeploy | < 30 minutes |
+| S3 accidental delete | S3 versioning rollback | < 15 minutes |
+
+RPO: 24 hours (RDS daily automated backup). Target RPO upgrade to 1 hour via RDS transaction log shipping in prod.
 
 ### Key Open Questions (Resolve Before Phase 1 Build)
 
-1. **Gmail access method:** Service account with domain delegation (requires Google Workspace) OR individual user OAuth (simpler but requires re-auth periodically). Recommend user OAuth for family Gmail accounts.
-2. **ATTOM vs Zillow vs RentCast:** ATTOM has broadest coverage and AVM API. Evaluate pricing vs coverage for your specific property locations before committing.
-3. **OpenAI data privacy:** Confirm with legal that sending document excerpts to OpenAI API is acceptable under trust governance. Consider Azure OpenAI (same models, private endpoint, no training on data).
-4. **Plaid tier:** Confirm Plaid pricing tier needed for your institution count. Some accounts (Fidelity, Schwab) require Plaid's higher tiers.
-5. **Gmail vs service account:** Whose Gmail accounts are monitored? Single "family finance" account or multiple individual accounts?
-6. **Heir access timeline:** When does the heir view become active — now, or only upon trustee succession? Affects initial build scope.
+1. **Gmail access method for Phase 3:** Individual user OAuth (simpler, re-auth periodically) vs. service account with domain delegation (requires Google Workspace). Recommend user OAuth for personal Gmail accounts.
+
+2. **Plaid institution tier:** Fidelity and Schwab require Plaid's higher tiers. Confirm before linking brokerage/retirement accounts. Development tier is free; production pricing depends on institution count.
+
+3. **OpenAI embeddings data privacy:** Document text is sent to OpenAI's embeddings API. Confirm acceptable under personal use. No training on API data per OpenAI policy, but confirm if needed.
+
+4. **ATTOM vs. Zillow vs. RentCast (Phase 2+):** Evaluate for coverage of specific property locations. ATTOM has broadest AVM API. Defer decision until Phase 2.
+
+5. **Google Drive folder structure:** Which folder(s) does drive_indexer watch? Define upfront to avoid indexing unrelated files. Recommend a dedicated `/FamilyVault` or `/FinanceDocs` folder.
+
+6. **Hermes deployment:** Run Hermes as a separate ECS Fargate task or co-located with FastAPI worker process? Recommend separate task for fault isolation.
 
 ---
 
 *Document maintained by: FamilyVault system architects*
 *Review cycle: Quarterly or on major architectural change*
+*Version: 2.0 — Updated 2026-05-10*
